@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "@types/node": "^22.10.9",
+    "express": "^4.21.2",
+    "prisma": "^6.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/ndu-pan/skripsi-backend.git",
+  "author": "Pandu Utomo <pandu@crescentrating.com>",
+  "license": "MIT"
+}
