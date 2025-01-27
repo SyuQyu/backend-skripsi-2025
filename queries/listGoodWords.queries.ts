@@ -21,4 +21,8 @@ async function getListGoodWords() {
     return await prisma.listGoodWords.findMany();
 }
 
+async function getGoodWordbyWord(word: string) {
+    return await prisma.listGoodWords.findFirst({ where: { word } });
+}
+
 export { createListGoodWord, getListGoodWordById, updateListGoodWord, deleteListGoodWord, getListGoodWords };

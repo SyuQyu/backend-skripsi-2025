@@ -20,10 +20,15 @@ async function getListBadWords() {
     return await prisma.listBadWords.findMany();
 }
 
+async function getBadWordByWord(word: string) {
+    return await prisma.listBadWords.findFirst({ where: { word } });
+}
+
 export {
     createListBadWord,
     getListBadWordById,
     updateListBadWord,
     deleteListBadWord,
     getListBadWords,
+    getBadWordByWord
 };

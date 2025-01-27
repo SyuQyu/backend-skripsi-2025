@@ -17,8 +17,8 @@ async function deletePost(id: string): Promise<Post> {
     return await prisma.post.delete({ where: { id } });
 }
 
-async function getPosts(): Promise<Post[]> {
+async function getAllPosts(): Promise<Post[]> {
     return await prisma.post.findMany();
 }
 
-export { createPost, getPostById, updatePost, deletePost, getPosts };
+export { createPost, getPostById, updatePost, deletePost, getAllPosts };

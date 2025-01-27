@@ -20,4 +20,8 @@ async function getReplies() {
     return await prisma.reply.findMany();
 }
 
-export { createReply, getReplyById, updateReply, deleteReply, getReplies };
+async function getRepliesByPostId(postId: string) {
+    return await prisma.reply.findMany({ where: { postId } });
+}
+
+export { createReply, getReplyById, updateReply, deleteReply, getReplies, getRepliesByPostId };

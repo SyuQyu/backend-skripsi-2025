@@ -16,4 +16,16 @@ async function getLikes() {
     return await prisma.like.findMany();
 }
 
-export { createLike, getLikeById, deleteLike, getLikes };
+async function getLikesByPostId(postId: string) {
+    return await prisma.like.findMany({ where: { postId } });
+}
+
+async function getLikesByUserId(userId: string) {
+    return await prisma.like.findMany({ where: { userId } });
+}
+
+async function updateLike(id: string, data: any) {
+    return await prisma.like.update({ where: { id }, data });
+}
+
+export { createLike, getLikeById, deleteLike, getLikes, updateLike };

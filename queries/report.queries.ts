@@ -20,4 +20,9 @@ async function getReports() {
     return await prisma.report.findMany();
 }
 
-export { createReport, getReportById, updateReport, deleteReport, getReports };
+async function getReportsByPostId(postId: string) {
+    return await prisma.report.findMany({ where: { postId } });
+}
+
+
+export { createReport, getReportById, updateReport, deleteReport, getReports, getReportsByPostId };
