@@ -1,6 +1,24 @@
 import { Router } from "express";
 import userRoutes from "./user.routes";
+import imageRoutes from "./image.routes";
+import likeRoutes from "./like.routes";
+import listBadWordsRoutes from "./listBadWords.routes";
+import listGoodWordsRoutes from "./listGoodWords.routes";
+import postRoutes from "./post.routes";
+import replyRoutes from "./reply.routes";
+import reportRoutes from "./report.routes";
+import roleRoutes from "./role.routes";
+import tagRoutes from "./tag.routes";
 const router = Router();
 router.use("/user", userRoutes);
+router.use("/posts", postRoutes);
+router.use("/replies", replyRoutes);
+router.use("/images", imageRoutes);
+router.use("/likes", likeRoutes);
+router.use("/bad-words", listBadWordsRoutes);
+router.use("/good-words", listGoodWordsRoutes);
+router.use("/reports", reportRoutes);
+router.use("/roles", roleRoutes);
+router.use("/tags", tagRoutes);
 
 export default router;

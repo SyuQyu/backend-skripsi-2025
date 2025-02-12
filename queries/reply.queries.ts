@@ -1,8 +1,31 @@
 import { prisma } from "./prisma";
 
 async function createReply(data: any) {
-    return await prisma.reply.create({ data });
-}
+    return prisma.reply.create({
+        data: {
+            ...data,
+            replyId: data.replyId || null,
+        }
+    });
+};
+
+async function getReplyWithNestedRepliesQuery(replyId: string, depth = 1) {
+    const includeNestedReplies: any = (depth: number) => {
+        if (depth === 0) return false;
+        return {
+            user: true,
+            replies: includeNestedReplies(depth - 1)
+        };
+    };
+
+    return prisma.reply.findUnique({
+        where: { id: replyId },
+        include: {
+            user: true,
+            replies: includeNestedReplies(depth)
+        }
+    });
+};
 
 async function getReplyById(id: string) {
     return await prisma.reply.findUnique({ where: { id } });
