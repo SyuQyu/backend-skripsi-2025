@@ -1,0 +1,113 @@
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import { Request, Response, NextFunction } from "express";
+import { userQueries, roleQueries } from "../queries";
+import { CustomError } from "../handler/customErrorHandler";
+
+type JwtPayload = { userId: string };
+
+type User = {
+    id: string;
+    username: string;
+    email: string;
+    password: string;
+    refreshToken?: string | null;
+    firstLogin?: boolean;
+    role?: {
+        name: string;
+    }
+};
+
+const ACCESS_TOKEN_SECRET: any = process.env.ACCESS_TOKEN_SECRET;
+const REFRESH_TOKEN_SECRET: any = process.env.REFRESH_TOKEN_SECRET;
+
+function generateAccessToken(userId: string, roleName?: string): string {
+    return jwt.sign({ userId, roleName }, ACCESS_TOKEN_SECRET, { expiresIn: "1d" });
+}
+
+function generateRefreshToken(userId: string, roleName?: string): string {
+    return jwt.sign({ userId, roleName }, REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+}
+
+export async function registerHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const data = req.body;
+        const hashedPassword: string = await bcrypt.hash(data.password, 10);
+        const setRole = await roleQueries.getRoleByName("User");
+        if (!setRole) throw new CustomError(500, "Internal Server Error: Role not found");
+        const newUser: User = await userQueries.createUser({
+            ...data,
+            password: hashedPassword,
+            firstLogin: true,
+            roleId: setRole.id,
+        });
+
+        res.status(201).json({
+            status: "success",
+            message: "User registered successfully",
+            user: newUser,
+        });
+    } catch (error: any) {
+        res.status(500).json({ status: "error", message: error.message });
+    }
+}
+
+export async function loginHandler(req: Request, res: Response): Promise<void> {
+
+    try {
+        let firstLogin = false;
+        const { username, password }: { username: string; password: string } = req.body;
+        const user: User | null = await userQueries.getUserByUsername(username);
+        if (!user) throw new CustomError(401, "Invalid username or password");
+        if (user.firstLogin === true) {
+            await userQueries.updateFirstLogin(user.id);
+            firstLogin = true;
+        }
+        if (!user) throw new CustomError(401, "Invalid email or password");
+
+        const isPasswordValid: boolean = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) throw new CustomError(401, "Invalid email or password");
+
+        const accessToken: string = generateAccessToken(user.id, user?.role?.name);
+        const refreshToken: string = generateRefreshToken(user.id, user?.role?.name);
+
+        await userQueries.updateRefreshToken(user.id, refreshToken);
+
+        res.status(200).json({
+            status: "success",
+            message: "Login successful",
+            firstLogin,
+            accessToken,
+            refreshToken,
+        });
+    } catch (error: any) {
+        res.status(error instanceof CustomError ? error.code : 500).json({
+            status: "error",
+            message: error.message,
+        });
+    }
+}
+
+export async function refreshTokenHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { token }: { token: string } = req.body;
+        if (!token) throw new CustomError(403, "Forbidden: No refresh token provided");
+
+        const user: User | null = await userQueries.getUserByRefreshToken(token);
+        if (!user) throw new CustomError(403, "Forbidden: Invalid refresh token");
+
+        jwt.verify(token, REFRESH_TOKEN_SECRET, (err: any, decoded: any) => {
+            if (err) throw new CustomError(403, "Forbidden: Invalid refresh token");
+
+            const { userId } = decoded as JwtPayload;
+            const newAccessToken: string = generateAccessToken(userId);
+
+            res.status(200).json({ status: "success", accessToken: newAccessToken });
+        });
+    } catch (error: any) {
+        res.status(error instanceof CustomError ? error.code : 500).json({
+            status: "error",
+            message: error.message,
+        });
+    }
+}

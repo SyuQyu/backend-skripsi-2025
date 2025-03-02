@@ -1,4 +1,4 @@
-// prisma/seed.js
+// prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -43,6 +43,54 @@ async function main() {
     } else {
         throw new Error('Roles not found');
     }
+
+    // Seed ListBadWords and ListGoodWords
+    const badWordsMap: any = {
+        "goblok": "bodoh",
+        "anjing": "kurang ajar",
+        "bangsat": "tidak sopan",
+        "tolol": "kurang pintar",
+        "asu": "nakal",
+        "brengsek": "tidak bertanggung jawab",
+        "keparat": "jahat",
+        "sinting": "tidak waras",
+        "idiot": "kurang cerdas",
+        "bajingan": "orang jahat",
+        "dungu": "kurang cerdas",
+        "kampret": "menyebalkan",
+        "pecundang": "tidak berani",
+        "setan": "pengganggu",
+        "iblis": "jahat",
+        "gila": "kurang waras",
+        "sialan": "menyebalkan",
+        "bejat": "tidak bermoral",
+        "kacau": "berantakan",
+        "payah": "kurang baik",
+        "memalukan": "tidak pantas",
+        "hancur": "rusak",
+        "jahat": "buruk hati",
+        "menjengkelkan": "mengganggu",
+        "kampungan": "kurang modern"
+    };
+
+    const badWordEntries = await prisma.$transaction(
+        Object.keys(badWordsMap).map(word =>
+            prisma.listBadWords.create({
+                data: { word }
+            })
+        )
+    );
+
+    await prisma.$transaction(
+        badWordEntries.map(badWord =>
+            prisma.listGoodWords.create({
+                data: {
+                    word: badWordsMap[badWord.word],
+                    badWordId: badWord.id
+                }
+            })
+        )
+    );
 
     // Fetch created users
     const users = await prisma.user.findMany();

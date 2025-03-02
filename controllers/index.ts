@@ -8,6 +8,7 @@ import * as replyController from './reply.controllers';
 import * as reportController from './report.controllers';
 import * as roleController from './role.controllers';
 import * as tagController from './tag.controllers';
+import * as authController from './auth.controllers';
 export {
     userController,
     imageController,
@@ -18,5 +19,6 @@ export {
     replyController,
     reportController,
     roleController,
-    tagController
+    tagController,
+    authController
 };

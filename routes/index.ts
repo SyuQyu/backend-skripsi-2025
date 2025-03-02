@@ -9,6 +9,7 @@ import replyRoutes from "./reply.routes";
 import reportRoutes from "./report.routes";
 import roleRoutes from "./role.routes";
 import tagRoutes from "./tag.routes";
+import authRoutes from "./auth.routes";
 const router = Router();
 router.use("/user", userRoutes);
 router.use("/posts", postRoutes);
@@ -20,5 +21,6 @@ router.use("/good-words", listGoodWordsRoutes);
 router.use("/reports", reportRoutes);
 router.use("/roles", roleRoutes);
 router.use("/tags", tagRoutes);
+router.use("/auth", authRoutes);
 
 export default router;

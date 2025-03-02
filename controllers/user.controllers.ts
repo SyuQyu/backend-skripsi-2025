@@ -19,6 +19,9 @@ export async function createUserHandler(req: Request, res: Response): Promise<vo
     }
 }
 
+
+
+
 export async function getUserByIdHandler(req: Request, res: Response): Promise<void> {
     try {
         const user = await userQueries.getUserById(req.params.userId);

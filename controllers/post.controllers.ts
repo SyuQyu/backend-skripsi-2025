@@ -1,10 +1,11 @@
 import { postQueries } from "../queries";
 import e, { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
-
+import { boyerMooreFilter } from "../algoritma/filterTeks";
 export async function createPostHandler(req: Request, res: Response): Promise<void> {
     try {
         const postData = req.body;
+        postData.content = (await boyerMooreFilter(postData.content)).filteredText;
         const newPost = await postQueries.createPost(postData);
         res.status(201).json({
             status: "success",

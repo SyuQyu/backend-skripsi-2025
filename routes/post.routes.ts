@@ -1,5 +1,5 @@
 import { Router } from 'express';
-// import authorization from '../middlewares/authorization';
+import { authMiddleware } from '../middlewares/authorization';
 import {
     postController
 } from '../controllers';
@@ -7,7 +7,7 @@ import {
 const router = Router();
 
 router.post('/', postController.createPostHandler);
-router.get('/all', postController.getAllPostsHandler);
+router.get('/all', authMiddleware(["User", "Admin"]), postController.getAllPostsHandler);
 router.get('/:postId', postController.getPostByIdHandler);
 router.put('/:postId', postController.updatePostHandler);
 router.delete('/:postId', postController.deletePostHandler);
