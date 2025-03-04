@@ -4,22 +4,30 @@ import { CustomError } from "../handler/customErrorHandler";
 import { boyerMooreFilter } from "../algoritma/filterTeks";
 export async function createPostHandler(req: Request, res: Response): Promise<void> {
     try {
-        const postData = req.body;
-        postData.content = (await boyerMooreFilter(postData.content)).filteredText;
-        const newPost = await postQueries.createPost(postData);
+        const { content, ...postData } = req.body;
+
+        console.log(req.body);
+        const { filteredText } = await boyerMooreFilter(content);
+        console.log(filteredText === content)
+        const newPost = await postQueries.createPost({
+            ...postData,
+            content,
+            filteredContent: filteredText
+        });
+
         res.status(201).json({
             status: "success",
-            message: 'Post created successfully',
-            post: newPost
+            message: "Post created successfully",
+            post: newPost,
         });
     } catch (error: any) {
-        const statusCode = error instanceof CustomError ? error.code : 500;
-        res.status(statusCode).json({
+        res.status(error instanceof CustomError ? error.code : 500).json({
             status: "error",
             message: error.message
         });
     }
 }
+
 
 export async function getPostByIdHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -43,24 +51,35 @@ export async function getPostByIdHandler(req: Request, res: Response): Promise<v
 
 export async function updatePostHandler(req: Request, res: Response): Promise<void> {
     try {
-        const updatedPostData = req.body;
-        const updatedPost = await postQueries.updatePost(req.params.postId, updatedPostData);
+        const { content, ...updatedPostData } = req.body;
+
+        console.log(req.body);
+        const { filteredText } = await boyerMooreFilter(content);
+
+        const updatedPost = await postQueries.updatePost(req.params.postId, {
+            ...updatedPostData,
+            content,
+            filteredContent: filteredText
+        });
+
         if (!updatedPost) {
-            throw new CustomError(404, 'Post not found');
+            throw new CustomError(404, "Post not found");
         }
+
         res.status(200).json({
             status: "success",
-            message: 'Post updated successfully',
-            post: updatedPost
+            message: "Post updated successfully",
+            post: updatedPost,
+            filteredContent: updatedPost.filteredContent
         });
     } catch (error: any) {
-        const statusCode = error instanceof CustomError ? error.code : 500;
-        res.status(statusCode).json({
+        res.status(error instanceof CustomError ? error.code : 500).json({
             status: "error",
             message: error.message
         });
     }
 }
+
 
 export async function deletePostHandler(req: Request, res: Response): Promise<void> {
     try {

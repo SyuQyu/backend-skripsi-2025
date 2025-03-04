@@ -16,9 +16,9 @@ async function getBadWordsFromDB(): Promise<Record<string, string>> {
     let badWords: Record<string, string> = {};
 
     for (const badWordItem of badWordsList) {
-        // Ambil kata sopan pertama (jika ada), jika tidak, gunakan kata aslinya
+        const normalizedWord = normalizeWord(badWordItem.word);
         const replacement = badWordItem.goodWords.length > 0 ? badWordItem.goodWords[0].word : badWordItem.word;
-        badWords[badWordItem.word] = replacement;
+        badWords[normalizedWord] = replacement; // Simpan kata kasar dalam bentuk normalisasi
     }
 
     return badWords;
@@ -32,18 +32,14 @@ async function getBadWordsFromDB(): Promise<Record<string, string>> {
 function normalizeWord(word: string): string {
     const charMap: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't' };
 
-    // Ubah angka menjadi huruf yang sesuai
-    word = word.replace(/[013457]/g, char => charMap[char] || char);
+    word = word.toLowerCase().replace(/[013457]/g, char => charMap[char] || char);
 
-    // // Hapus pengulangan huruf berlebihan kecuali untuk kata yang memang memiliki huruf ganda
-    // const exceptions = Object.keys(badWords).map(w => w.replace(/(.)\1/g, "$1$1"));
-    // for (const exception of exceptions) {
-    //     if (word.includes(exception)) return word;
-    // }
-    // return word.replace(/(.)\1{2,}/g, "$1");
+    // Menghapus semua angka tambahan yang tidak diubah sebelumnya
+    word = word.replace(/\d+/g, "");
 
-    // Hapus pengulangan huruf berlebihan (contoh: goooobloooook -> goblok)
-    return word.replace(/(.)\1{2,}/g, "$1");
+    // Menghapus huruf berulang lebih dari 2 kali berturut-turut
+    // return word.replace(/(.)\1{2,}/g, "$1$1");
+    return word.replace(/(.)\1+/g, "$1");
 }
 
 /**
@@ -66,34 +62,34 @@ function buildBadCharacterTable(pattern: string): Record<string, number> {
  * @returns Promise<{ filteredText: string; filteredWords: { original: string; replacement: string; position: number }[] }>
  */
 export async function boyerMooreFilter(text: string): Promise<{ filteredText: string; filteredWords: { original: string; replacement: string; position: number }[] }> {
-    let badWords = await getBadWordsFromDB(); // Ambil daftar kata kasar dari database
+    let badWords = await getBadWordsFromDB(); // Sudah dalam bentuk normalisasi
     let filteredText = text;
     let filteredWords: { original: string; replacement: string; position: number }[] = [];
 
+    let normalizedText = normalizeWord(text); // Normalisasi teks sebelum difilter
+    console.log(normalizedText);
     for (const badWord in badWords) {
         const replacement = badWords[badWord];
-        const normalizedBadWord = normalizeWord(badWord);
-        const badCharTable = buildBadCharacterTable(normalizedBadWord);
+        const badCharTable = buildBadCharacterTable(badWord);
         let index = 0;
 
-        while (index <= filteredText.length - normalizedBadWord.length) {
-            let matchIndex = normalizedBadWord.length - 1;
-            let subText = filteredText.substring(index, index + normalizedBadWord.length);
-            let normalizedSubText = normalizeWord(subText);
+        while (index <= normalizedText.length - badWord.length) {
+            let matchIndex = badWord.length - 1;
+            let subText = normalizedText.substring(index, index + badWord.length);
 
-            while (matchIndex >= 0 && normalizedBadWord[matchIndex] === normalizedSubText[matchIndex]) {
+            while (matchIndex >= 0 && badWord[matchIndex] === subText[matchIndex]) {
                 matchIndex--;
             }
 
             if (matchIndex < 0) {
                 filteredWords.push({ original: badWord, replacement, position: index });
-                filteredText =
-                    filteredText.substring(0, index) +
-                    replacement +
-                    filteredText.substring(index + normalizedBadWord.length);
+
+                // Cari bagian asli yang sesuai dalam teks original
+                const originalSubText = text.substring(index, index + badWord.length);
+                filteredText = filteredText.replace(originalSubText, replacement);
                 index += replacement.length;
             } else {
-                const badCharShift = badCharTable[filteredText[index + matchIndex]] || normalizedBadWord.length;
+                const badCharShift = badCharTable[normalizedText[index + matchIndex]] || badWord.length;
                 index += Math.max(1, badCharShift);
             }
         }
@@ -103,7 +99,7 @@ export async function boyerMooreFilter(text: string): Promise<{ filteredText: st
 
 // Contoh penggunaan
 // (async () => {
-//     const text = "Dasar kamu goblok dan anjing!";
+//     const text = "Dasar kamu g0b0lk dan 4anj1ing!";
 //     const result = await boyerMooreFilter(text);
 //     console.log(result);
 // })();

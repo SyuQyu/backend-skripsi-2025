@@ -36,15 +36,16 @@ export function authMiddleware(roles?: ("Admin" | "User")[]) {
             req.user = { id: decoded.userId, role: decoded.roleName.toLowerCase() };
 
             if (roles && !roles.map(r => r.toLowerCase()).includes(req.user.role)) {
-                throw new CustomError(403, "You don't have permission to access this resource");
+                res.status(403).json({ message: "You don't have permission to access this resource" });
+                return;
             }
 
             next();
         } catch (error: any) {
             if (error instanceof TokenExpiredError) {
-                throw new CustomError(401, "Token has expired");
+                res.status(401).json({ status: "error", message: "Token has expired" });
             } else {
-                throw new CustomError(401, "Unauthorized: Invalid token");
+                res.status(401).json({ status: "error", message: "Unauthorized: Invalid token" });
             }
         }
     };

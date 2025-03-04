@@ -4,7 +4,7 @@ async function createReply(data: any) {
     return prisma.reply.create({
         data: {
             ...data,
-            replyId: data.replyId || null,
+            parentId: data?.parentId || null,
         }
     });
 };

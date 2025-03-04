@@ -65,13 +65,13 @@ model Tag {
 
 model Post {
     id              String   @id @default(cuid())
-    tagId           String
+    tagId           String?
     userId          String
     content         String
     filteredContent String?
     viewCount       Int      @default(0)
     user            User     @relation(fields: [userId], references: [id])
-    tag             Tag      @relation(fields: [tagId], references: [id])
+    tag             Tag?     @relation(fields: [tagId], references: [id])
     replies         Reply[]
     images          Image[]
     likes           Like[]
@@ -81,20 +81,21 @@ model Post {
 }
 
 model Reply {
-    id        String   @id @default(uuid())
-    content   String
-    userId    String
-    postId    String
-    user      User     @relation(fields: [userId], references: [id])
-    post      Post     @relation(fields: [postId], references: [id])
-    replies   Reply[]  @relation("ReplyToReply")
-    parentId  String?  @map("replyId")
-    parent    Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
-    images    Image[]
-    likes     Like[]
-    reports   Report[]
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+    id              String   @id @default(uuid())
+    content         String
+    userId          String
+    postId          String
+    filteredContent String?
+    user            User     @relation(fields: [userId], references: [id])
+    post            Post     @relation(fields: [postId], references: [id])
+    replies         Reply[]  @relation("ReplyToReply")
+    parentId        String?  @map("replyId")
+    parent          Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
+    images          Image[]
+    likes           Like[]
+    reports         Report[]
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @default(now()) @updatedAt
 }
 
 model Image {

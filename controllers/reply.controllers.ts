@@ -1,24 +1,34 @@
 import { replyQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
+import { boyerMooreFilter } from "../algoritma/filterTeks";
 
 export async function createReplyHandler(req: Request, res: Response): Promise<void> {
     try {
-        const replyData = req.body;
-        const newReply = await replyQueries.createReply(replyData);
+        const { content, ...replyData } = req.body;
+
+        console.log(req.body);
+        const { filteredText } = await boyerMooreFilter(content);
+
+        const newReply = await replyQueries.createReply({
+            ...replyData,
+            content,
+            filteredContent: filteredText
+        });
+
         res.status(201).json({
             status: "success",
-            message: 'Reply created successfully',
-            reply: newReply
+            message: "Reply created successfully",
+            reply: newReply,
         });
     } catch (error: any) {
-        const statusCode = error instanceof CustomError ? error.code : 500;
-        res.status(statusCode).json({
+        res.status(error instanceof CustomError ? error.code : 500).json({
             status: "error",
             message: error.message
         });
     }
 }
+
 
 export async function getReplyByIdHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -42,24 +52,34 @@ export async function getReplyByIdHandler(req: Request, res: Response): Promise<
 
 export async function updateReplyHandler(req: Request, res: Response): Promise<void> {
     try {
-        const updatedReplyData = req.body;
-        const updatedReply = await replyQueries.updateReply(req.params.replyId, updatedReplyData);
+        const { content, ...updatedReplyData } = req.body;
+
+        console.log(req.body);
+        const { filteredText } = await boyerMooreFilter(content);
+
+        const updatedReply = await replyQueries.updateReply(req.params.replyId, {
+            ...updatedReplyData,
+            content,
+            filteredContent: filteredText
+        });
+
         if (!updatedReply) {
-            throw new CustomError(404, 'Reply not found');
+            throw new CustomError(404, "Reply not found");
         }
+
         res.status(200).json({
             status: "success",
-            message: 'Reply updated successfully',
+            message: "Reply updated successfully",
             reply: updatedReply
         });
     } catch (error: any) {
-        const statusCode = error instanceof CustomError ? error.code : 500;
-        res.status(statusCode).json({
+        res.status(error instanceof CustomError ? error.code : 500).json({
             status: "error",
             message: error.message
         });
     }
 }
+
 
 export async function deleteReplyHandler(req: Request, res: Response): Promise<void> {
     try {

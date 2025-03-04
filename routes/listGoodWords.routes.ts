@@ -1,5 +1,5 @@
 import { Router } from 'express';
-// import authorization from '../middlewares/authorization';
+import { authMiddleware } from '../middlewares/authorization';
 import {
     listGoodWordsController
 } from '../controllers';
@@ -7,7 +7,7 @@ import {
 const router = Router();
 
 router.post('/', listGoodWordsController.createListGoodWordsHandler);
-router.get('/all', listGoodWordsController.getListGoodWordsByIdHandler);
+router.get('/all', listGoodWordsController.listAllListGoodWordsHandler);
 router.get('/:goodWordId', listGoodWordsController.getListGoodWordsByIdHandler);
 router.put('/:goodWordId', listGoodWordsController.updateListGoodWordsHandler);
 router.delete('/:goodWordId', listGoodWordsController.deleteListGoodWordsHandler);

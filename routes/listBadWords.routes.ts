@@ -1,5 +1,5 @@
 import { Router } from 'express';
-// import authorization from '../middlewares/authorization';
+import { authMiddleware } from '../middlewares/authorization';
 import {
     listBadWordsController
 } from '../controllers';
