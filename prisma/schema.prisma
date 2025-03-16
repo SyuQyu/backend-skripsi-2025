@@ -56,28 +56,38 @@ model User {
 }
 
 model Tag {
-    id        String   @id @default(cuid())
-    tag       String
-    posts     Post[]
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+    id        String    @id @default(cuid())
+    tag       String    @unique
+    posts     PostTag[]
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
 }
 
 model Post {
-    id              String   @id @default(cuid())
-    tagId           String?
+    id              String    @id @default(cuid())
     userId          String
     content         String
     filteredContent String?
-    viewCount       Int      @default(0)
-    user            User     @relation(fields: [userId], references: [id])
-    tag             Tag?     @relation(fields: [tagId], references: [id])
+    viewCount       Int       @default(0)
+    user            User      @relation(fields: [userId], references: [id])
+    tags            PostTag[]
     replies         Reply[]
     images          Image[]
     likes           Like[]
     reports         Report[]
-    createdAt       DateTime @default(now())
-    updatedAt       DateTime @default(now()) @updatedAt
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @default(now()) @updatedAt
+}
+
+model PostTag {
+    postId    String
+    tagId     String
+    post      Post     @relation(fields: [postId], references: [id])
+    tag       Tag      @relation(fields: [tagId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+
+    @@id([postId, tagId]) // Composite key agar tidak ada duplikasi
 }
 
 model Reply {

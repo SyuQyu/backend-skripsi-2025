@@ -8,6 +8,8 @@ const router = Router();
 
 router.post('/', postController.createPostHandler);
 router.get('/all', authMiddleware(["User", "Admin"]), postController.getAllPostsHandler);
+router.get('/search/:content', postController.getPostByContentHandler);
+router.get('/tag/:tag', postController.getPostByTagHandler);
 router.get('/:postId', postController.getPostByIdHandler);
 router.put('/:postId', postController.updatePostHandler);
 router.delete('/:postId', postController.deletePostHandler);

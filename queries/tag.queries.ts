@@ -20,5 +20,21 @@ async function getTags() {
     return await prisma.tag.findMany();
 }
 
+async function getTagByName(name: string) {
+    return await prisma.tag.findFirst({ where: { tag: name } });
+}
 
-export { createTag, getTagById, updateTag, deleteTag, getTags };
+/**
+ * ✅ Fungsi untuk menghubungkan Post dan Tag di tabel PostTag
+ */
+async function createPostTag(postId: string, tagId: string) {
+    return await prisma.postTag.create({
+        data: {
+            postId,
+            tagId,
+        },
+    });
+}
+
+
+export { createTag, getTagById, updateTag, deleteTag, getTags, getTagByName, createPostTag };

@@ -88,6 +88,24 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function dataLoggedInHandler(req: Request, res: Response): Promise<void> {
+    try {
+
+        const user: User | null = await userQueries.getUserById(res.locals.user.id);
+        if (!user) throw new CustomError(404, "User not found");
+
+        res.status(200).json({
+            status: "success",
+            message: "User data retrieved successfully",
+            user,
+        });
+    } catch (error: any) {
+        res.status(error instanceof CustomError ? error.code : 500).json({
+            status: "error",
+            message: error.message,
+        });
+    }
+}
 export async function refreshTokenHandler(req: Request, res: Response): Promise<void> {
     try {
         const { token }: { token: string } = req.body;
