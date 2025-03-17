@@ -98,3 +98,20 @@ export async function getAllTagsHandler(req: Request, res: Response): Promise<vo
     }
 }
 
+export async function getPopularTagsHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const tags = await tagQueries.getPopularTags();
+        res.status(200).json({
+            status: "success",
+            message: 'Popular tags found',
+            tags
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
+

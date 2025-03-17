@@ -20,6 +20,17 @@ async function getTags() {
     return await prisma.tag.findMany();
 }
 
+async function getPopularTags() {
+    return await prisma.tag.findMany({
+        orderBy: {
+            posts: {
+                _count: 'desc',
+            },
+        },
+        take: 5,
+    });
+}
+
 async function getTagByName(name: string) {
     return await prisma.tag.findFirst({ where: { tag: name } });
 }
@@ -37,4 +48,4 @@ async function createPostTag(postId: string, tagId: string) {
 }
 
 
-export { createTag, getTagById, updateTag, deleteTag, getTags, getTagByName, createPostTag };
+export { createTag, getTagById, updateTag, deleteTag, getTags, getTagByName, createPostTag, getPopularTags };

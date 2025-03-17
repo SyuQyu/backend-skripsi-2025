@@ -6,7 +6,54 @@ async function createPost(data: Omit<Post, "id">): Promise<Post> {
 }
 
 async function getPostById(id: string): Promise<Post | null> {
-    return await prisma.post.findUnique({ where: { id } });
+    return await prisma.post.findUnique(
+        {
+            where: { id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                    }
+                },
+                likes: true,
+                tags: {
+                    select: {
+                        tag: true
+                    }
+                },
+                reports: true,
+                replies: {
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                            }
+                        },
+                        likes: true,
+                        reports: true,
+                        replies: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        username: true,
+                                    }
+                                },
+                                replies: true,
+                                likes: true,
+                                reports: true,
+                            }
+                        }
+                    }
+                }
+            }
+
+        },
+
+    );
 }
 
 async function getPostWithRepliesQuery(id: string, skip = 0, take = 10) {
