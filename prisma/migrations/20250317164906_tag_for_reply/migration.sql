@@ -1,0 +1,15 @@
+-- CreateTable
+CREATE TABLE "ReplyTag" (
+    "replyId" TEXT NOT NULL,
+    "tagId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReplyTag_pkey" PRIMARY KEY ("replyId","tagId")
+);
+
+-- AddForeignKey
+ALTER TABLE "ReplyTag" ADD CONSTRAINT "ReplyTag_replyId_fkey" FOREIGN KEY ("replyId") REFERENCES "Reply"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReplyTag" ADD CONSTRAINT "ReplyTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

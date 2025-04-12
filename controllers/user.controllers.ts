@@ -1,6 +1,7 @@
 import { userQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
+import bcrypt from "bcrypt";
 export async function createUserHandler(req: Request, res: Response): Promise<void> {
     try {
         const userData = req.body;
@@ -44,11 +45,18 @@ export async function getUserByIdHandler(req: Request, res: Response): Promise<v
 
 export async function updateUserHandler(req: Request, res: Response): Promise<void> {
     try {
-        const updatedUserData = req.body;
+        const updatedUserData = { ...req.body };
+
+        // Jika ada password baru, hash dulu
+        if (updatedUserData.password) {
+            updatedUserData.password = await bcrypt.hash(updatedUserData.password, 10);
+        }
+
         const updatedUser = await userQueries.updateUser(req.params.userId, updatedUserData);
         if (!updatedUser) {
             throw new CustomError(404, 'User not found');
         }
+
         res.status(200).json({
             status: "success",
             message: 'User updated successfully',
@@ -62,6 +70,7 @@ export async function updateUserHandler(req: Request, res: Response): Promise<vo
         });
     }
 }
+
 
 export async function deleteUserHandler(req: Request, res: Response): Promise<void> {
     try {

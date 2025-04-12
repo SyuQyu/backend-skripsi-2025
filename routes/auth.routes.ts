@@ -17,5 +17,9 @@ router.post('/refresh-token', authController.refreshTokenHandler);
 
 // data Logged In
 router.get('/data-logged-in', authMiddleware(["User", "Admin"]), authController.dataLoggedInHandler);
+//  check password
+router.post('/check-password', authMiddleware(["User", "Admin"]), authController.checkPasswordHandler);
+// Reset password
+router.post('/reset-password', authMiddleware(["User", "Admin"]), authController.resetPasswordHandler);
 
 export default router;

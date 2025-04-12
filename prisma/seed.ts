@@ -1,4 +1,3 @@
-// prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -6,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
     // Seed roles
-    await prisma.role.createMany({
+    const roles = await prisma.role.createMany({
         data: [
             { name: 'Admin' },
             { name: 'User' },
@@ -14,37 +13,34 @@ async function main() {
         skipDuplicates: true
     });
 
-    // Fetch created roles
-    const roles = await prisma.role.findMany();
-    const adminRole = roles.find(role => role.name === 'Admin');
-    const userRole = roles.find(role => role.name === 'User');
+    // Fetch roles
+    const adminRole = await prisma.role.findFirst({ where: { name: 'Admin' } });
+    const userRole = await prisma.role.findFirst({ where: { name: 'User' } });
+
+    if (!adminRole || !userRole) throw new Error('Roles not found');
 
     // Seed users
-    if (adminRole && userRole) {
-        await prisma.user.createMany({
-            data: [
-                {
-                    fullName: 'Alice Admin',
-                    username: 'aliceadmin',
-                    email: 'alice@prisma.io',
-                    password: await bcrypt.hash('password456', 10),
-                    roleId: adminRole.id
-                },
-                {
-                    fullName: 'Bob User',
-                    username: 'bobuser',
-                    email: 'bob@prisma.io',
-                    password: await bcrypt.hash('password456', 10),
-                    roleId: userRole.id
-                }
-            ],
-            skipDuplicates: true
-        });
-    } else {
-        throw new Error('Roles not found');
-    }
+    await prisma.user.createMany({
+        data: [
+            {
+                fullName: 'Alice Admin',
+                username: 'aliceadmin',
+                email: 'alice@prisma.io',
+                password: await bcrypt.hash('password456', 10),
+                roleId: adminRole.id
+            },
+            {
+                fullName: 'Bob User',
+                username: 'bobuser',
+                email: 'bob@prisma.io',
+                password: await bcrypt.hash('password456', 10),
+                roleId: userRole.id
+            }
+        ],
+        skipDuplicates: true
+    });
 
-    // Seed ListBadWords and ListGoodWords
+    // Seed bad words and replacements
     const badWordsMap: any = {
         "goblok": "bodoh",
         "anjing": "kurang ajar",
@@ -92,11 +88,6 @@ async function main() {
         )
     );
 
-    // Fetch created users
-    const users = await prisma.user.findMany();
-    const alice = users.find(user => user.username === 'aliceadmin');
-    const bob = users.find(user => user.username === 'bobuser');
-
     // Seed tags
     await prisma.tag.createMany({
         data: [
@@ -106,72 +97,54 @@ async function main() {
         skipDuplicates: true
     });
 
-    // Fetch created tags
-    const tags = await prisma.tag.findMany();
-    const generalTag = tags.find(tag => tag.tag === 'General');
-    const announcementTag = tags.find(tag => tag.tag === 'Announcements');
+    // Fetch users and tags
+    const alice = await prisma.user.findFirst({ where: { username: 'aliceadmin' } });
+    const bob = await prisma.user.findFirst({ where: { username: 'bobuser' } });
+    const generalTag = await prisma.tag.findFirst({ where: { tag: 'General' } });
+    const announcementTag = await prisma.tag.findFirst({ where: { tag: 'Announcements' } });
+
+    if (!alice || !bob || !generalTag || !announcementTag) throw new Error('Users or Tags not found');
 
     // Seed posts
-    if (generalTag && announcementTag && alice && bob) {
-        await prisma.post.createMany({
-            data: [
-                {
-                    userId: alice.id,
-                    tagId: generalTag.id,
-                    content: 'Welcome to the general discussion!'
-                },
-                {
-                    userId: bob.id,
-                    tagId: announcementTag.id,
-                    content: 'New updates coming soon!'
-                }
-            ]
-        });
-    } else {
-        throw new Error('Tags or users not found');
-    }
-
-    // Fetch created posts
-    const posts = await prisma.post.findMany();
-    const generalPost = posts.find(post => post.content === 'Welcome to the general discussion!');
-
-    if (generalPost) {
-        // Seed replies
-        await prisma.reply.createMany({
-            data: [
-                {
-                    userId: bob.id,
-                    postId: generalPost.id,
-                    content: 'Thanks for the info!'
-                },
-                {
-                    userId: alice.id,
-                    postId: generalPost.id,
-                    content: 'Glad you found it useful!'
-                }
-            ]
-        });
-
-        // Fetch created replies
-        const replies = await prisma.reply.findMany();
-        const firstReply = replies.find(reply => reply.content === 'Thanks for the info!');
-
-        if (firstReply) {
-            // Seed nested reply
-            await prisma.reply.create({
-                data: {
-                    userId: bob.id,
-                    postId: generalPost.id,
-                    parentId: firstReply.id,
-                    content: 'Do you have more details?'
-                }
-            });
-        } else {
-            throw new Error('First reply not found');
+    const generalPost = await prisma.post.create({
+        data: {
+            userId: alice.id,
+            content: 'Welcome to the general discussion!',
         }
-    } else {
-        throw new Error('General post not found');
-    }
+    });
+
+    await prisma.post.create({
+        data: {
+            userId: bob.id,
+            content: 'New updates coming soon!',
+        }
+    });
+
+    // Seed replies
+    const firstReply = await prisma.reply.create({
+        data: {
+            userId: bob.id,
+            postId: generalPost.id,
+            content: 'Thanks for the info!'
+        }
+    });
+
+    await prisma.reply.create({
+        data: {
+            userId: alice.id,
+            postId: generalPost.id,
+            content: 'Glad you found it useful!'
+        }
+    });
+
+    await prisma.reply.create({
+        data: {
+            userId: bob.id,
+            postId: generalPost.id,
+            parentId: firstReply.id,
+            content: 'Do you have more details?'
+        }
+    });
 
     console.log('Seeding completed successfully!');
 }

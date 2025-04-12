@@ -88,6 +88,49 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
     }
 }
 
+export async function resetPasswordHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, password }: { userId: string; password: string } = req.body;
+        const user: User | null = await userQueries.getUserById(userId);
+        if (!user) throw new CustomError(404, "User not found");
+
+        const hashedPassword: string = await bcrypt.hash(password, 10);
+        await userQueries.resetPassword(user.id, hashedPassword);
+
+        res.status(200).json({
+            status: "success",
+            message: "Password reset successfully",
+        });
+    } catch (error: any) {
+        res.status(error instanceof CustomError ? error.code : 500).json({
+            status: "error",
+            message: error.message,
+        });
+    }
+}
+
+export async function checkPasswordHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, password }: { userId: string; password: string } = req.body;
+        const user: User | null = await userQueries.getUserById(userId);
+        if (!user) throw new CustomError(404, "User not found");
+
+        const isPasswordValid: boolean = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) throw new CustomError(200, "Invalid password");
+
+        res.status(200).json({
+            status: "success",
+            message: "Password is valid",
+        });
+    }
+    catch (error: any) {
+        res.status(error instanceof CustomError ? error.code : 500).json({
+            status: "error",
+            message: error.message,
+        });
+    }
+}
+
 export async function dataLoggedInHandler(req: Request, res: Response): Promise<void> {
     try {
 

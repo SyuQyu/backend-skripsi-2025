@@ -16,6 +16,14 @@ async function getUserById(userId: string) {
     return user;
 }
 
+async function resetPassword(userId: string, password: string) {
+    const user = await prisma.user.update({
+        where: { id: userId },
+        data: { password },
+    });
+    return user;
+}
+
 async function getUserByUsername(username: string) {
     const user = await prisma.user.findUnique({
         where: { username },
@@ -71,4 +79,4 @@ async function getUserByRefreshToken(refreshToken: string) {
 }
 
 
-export { getUsers, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };
+export { getUsers, resetPassword, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };

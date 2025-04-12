@@ -27,6 +27,63 @@ async function getReplyWithNestedRepliesQuery(replyId: string, depth = 1) {
     });
 };
 
+
+async function getRepliesByTag(tag: string): Promise<any[]> {
+    return await prisma.reply.findMany({
+        where: {
+            tags: {
+                some: {
+                    tag: {
+                        tag: tag
+                    }
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    username: true,
+                }
+            },
+            likes: true,
+            tags: {
+                select: {
+                    tag: true
+                }
+            },
+            reports: true,
+            replies: {
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                        }
+                    },
+                    likes: true,
+                    reports: true,
+                    replies: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    username: true,
+                                }
+                            },
+                            replies: true,
+                            likes: true,
+                            reports: true,
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 async function getReplyById(id: string) {
     return await prisma.reply.findUnique({ where: { id } });
 }
@@ -47,4 +104,4 @@ async function getRepliesByPostId(postId: string) {
     return await prisma.reply.findMany({ where: { postId } });
 }
 
-export { createReply, getReplyById, updateReply, deleteReply, getReplies, getRepliesByPostId };
+export { createReply, getReplyById, updateReply, deleteReply, getReplies, getRepliesByPostId, getRepliesByTag };

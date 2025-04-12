@@ -5,6 +5,11 @@ import { CustomError } from "../handler/customErrorHandler";
 export async function createReportHandler(req: Request, res: Response): Promise<void> {
     try {
         const reportData = req.body;
+
+        if (!reportData.postId && !reportData.replyId) {
+            throw new CustomError(400, 'Either postId or replyId must be provided.');
+        }
+
         const newReport = await reportQueries.createReport(reportData);
         res.status(201).json({
             status: "success",
@@ -19,6 +24,24 @@ export async function createReportHandler(req: Request, res: Response): Promise<
         });
     }
 }
+
+export async function getReportsByReplyIdHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const reports = await reportQueries.getReportsByReplyId(req.params.replyId);
+        res.status(200).json({
+            status: "success",
+            message: 'Reports found',
+            reports
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
+
 
 export async function getReportByIdHandler(req: Request, res: Response): Promise<void> {
     try {

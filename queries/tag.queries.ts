@@ -47,5 +47,14 @@ async function createPostTag(postId: string, tagId: string) {
     });
 }
 
+async function createReplyTag(replyId: string, tagId: string) {
+    return await prisma.replyTag.create({
+        data: {
+            replyId,
+            tagId,
+        },
+    });
+}
 
-export { createTag, getTagById, updateTag, deleteTag, getTags, getTagByName, createPostTag, getPopularTags };
+
+export { createTag, getTagById, updateTag, deleteTag, getTags, getTagByName, createPostTag, getPopularTags, createReplyTag };

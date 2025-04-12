@@ -1,5 +1,5 @@
 import { postQueries, tagQueries } from "../queries";
-import e, { Request, Response } from "express";
+import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
 import { boyerMooreFilter } from "../algoritma/filterTeks";
 
@@ -46,9 +46,37 @@ export async function createPostHandler(req: Request, res: Response): Promise<vo
     }
 }
 
+export async function checkWordHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { text } = req.body;
+        console.log(req.body);
+        if (!text) {
+            res.status(400).json({
+                status: "error",
+                message: "Text is required"
+            });
+            return;
+        }
 
+        // Gunakan fungsi Boyer-Moore untuk memfilter kata
+        const { filteredText, filteredWords } = await boyerMooreFilter(text);
+        const bannedWords = filteredWords.map(word => word.original);
+        const replacementWords = filteredWords.map(word => word.replacement);
 
-
+        res.status(200).json({
+            status: "success",
+            original: text,
+            filtered: filteredText,
+            bannedWords: bannedWords,         // ["goblok", "anjing"]
+            replacementWords: replacementWords // ["bodoh", "hewan"]
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
 
 export async function getPostByIdHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -121,6 +149,24 @@ export async function deletePostHandler(req: Request, res: Response): Promise<vo
         });
     }
 }
+
+export async function getPostByUserHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const posts = await postQueries.getPostByUser(req.params.userId);
+        res.status(200).json({
+            status: "success",
+            message: "Posts found for user",
+            posts
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
+
 
 export async function getPostByContentHandler(req: Request, res: Response): Promise<void> {
     try {

@@ -56,11 +56,12 @@ model User {
 }
 
 model Tag {
-    id        String    @id @default(cuid())
-    tag       String    @unique
+    id        String     @id @default(cuid())
+    tag       String     @unique
     posts     PostTag[]
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @default(now()) @updatedAt
+    ReplyTag  ReplyTag[]
 }
 
 model Post {
@@ -82,7 +83,7 @@ model Post {
 model PostTag {
     postId    String
     tagId     String
-    post      Post     @relation(fields: [postId], references: [id])
+    post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
     tag       Tag      @relation(fields: [tagId], references: [id])
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now()) @updatedAt
@@ -91,21 +92,33 @@ model PostTag {
 }
 
 model Reply {
-    id              String   @id @default(uuid())
+    id              String     @id @default(uuid())
     content         String
     userId          String
     postId          String
     filteredContent String?
-    user            User     @relation(fields: [userId], references: [id])
-    post            Post     @relation(fields: [postId], references: [id])
-    replies         Reply[]  @relation("ReplyToReply")
-    parentId        String?  @map("replyId")
-    parent          Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
+    user            User       @relation(fields: [userId], references: [id])
+    post            Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+    replies         Reply[]    @relation("ReplyToReply")
+    parentId        String?    @map("replyId")
+    parent          Reply?     @relation("ReplyToReply", fields: [parentId], references: [id])
     images          Image[]
     likes           Like[]
     reports         Report[]
-    createdAt       DateTime @default(now())
-    updatedAt       DateTime @default(now()) @updatedAt
+    tags            ReplyTag[] // Relasi ke tabel ReplyTag
+    createdAt       DateTime   @default(now())
+    updatedAt       DateTime   @default(now()) @updatedAt
+}
+
+model ReplyTag {
+    replyId   String
+    tagId     String
+    reply     Reply    @relation(fields: [replyId], references: [id], onDelete: Cascade)
+    tag       Tag      @relation(fields: [tagId], references: [id])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+
+    @@id([replyId, tagId]) // Composite key agar tidak ada duplikasi
 }
 
 model Image {
@@ -125,8 +138,8 @@ model Like {
     postId    String?
     replyId   String?
     user      User     @relation(fields: [userId], references: [id])
-    post      Post?    @relation(fields: [postId], references: [id])
-    reply     Reply?   @relation(fields: [replyId], references: [id])
+    post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+    reply     Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now()) @updatedAt
 }
@@ -138,9 +151,9 @@ model Report {
     userId            String
     violationCategory String
     message           String
-    post              Post?    @relation(fields: [postId], references: [id])
-    reply             Reply?   @relation(fields: [replyId], references: [id])
-    user              User     @relation(fields: [userId], references: [id])
+    post              Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+    reply             Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+    user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt         DateTime @default(now())
     updatedAt         DateTime @default(now()) @updatedAt
 }
