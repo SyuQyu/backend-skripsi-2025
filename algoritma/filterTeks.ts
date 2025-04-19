@@ -83,44 +83,73 @@ function buildBadCharacterTable(pattern: string): Record<string, number> {
  * @returns {Promise<{ filteredText: string; filteredWords: { original: string; replacement: string; position: number }[] }>}
  *          - Teks hasil filter dan daftar kata yang diganti beserta posisinya.
  */
-export async function boyerMooreFilter(text: string): Promise<{ filteredText: string; filteredWords: { original: string; replacement: string; position: number }[] }> {
-    // Ambil daftar kata kasar yang telah dinormalisasi dari database
-    let badWords = await getBadWordsFromDB();
+/**
+ * Memfilter teks dari kata kasar dengan memperhatikan kata yang telah dinormalisasi
+ * dan mengganti hanya kata yang sesuai, serta melacak kata asli yang dimasukkan pengguna.
+ * 
+ * @param {string} text - Teks yang akan difilter dari kata kasar.
+ * @returns {Promise<{ filteredText: string; filteredWords: { original: string; replacement: string; position: number, rawWord: string }[] }>}
+ */
+export async function boyerMooreFilter(text: string): Promise<{
+    filteredText: string;
+    filteredWords: {
+        original: string;
+        replacement: string;
+        position: number;
+        rawWord: string; // Kata asli dari teks user (seperti "4njing")
+    }[];
+}> {
+    // Ambil daftar kata kasar dan penggantinya dari database (sudah dinormalisasi)
+    const badWords = await getBadWordsFromDB();
 
-    // Simpan teks hasil filter (awalnya sama dengan teks asli)
-    let filteredText = text;
+    // Pisahkan teks berdasarkan batas kata (spasi, tanda baca tetap dipertahankan)
+    const words = text.split(/\b/);
 
-    // Simpan daftar kata yang telah difilter
-    let filteredWords: { original: string; replacement: string; position: number }[] = [];
+    // Untuk menyimpan teks setelah kata kasar diganti
+    let filteredText = "";
 
-    // Normalisasi teks sebelum dilakukan pencarian kata kasar
-    let normalizedText = normalizeWord(text);
+    // Untuk menyimpan kata-kata kasar yang terdeteksi beserta info lengkapnya
+    let filteredWords: {
+        original: string;
+        replacement: string;
+        position: number;
+        rawWord: string;
+    }[] = [];
 
-    // Iterasi setiap kata kasar yang ada dalam daftar
-    for (const badWord in badWords) {
-        const replacement = badWords[badWord]; // Ambil kata pengganti
+    // Hitung posisi karakter berjalan agar bisa melacak posisi kata kasar dalam teks
+    let currentIndex = 0;
 
-        // Buat ekspresi reguler untuk mencocokkan kata secara utuh (\b menandai batas kata)
-        const regex = new RegExp(`\\b${badWord}\\b`, 'gi');
+    // Proses tiap potongan kata
+    for (const word of words) {
+        const normalized = normalizeWord(word); // Normalisasi potongan kata
 
-        let match;
-        // Loop untuk mencari semua kecocokan dalam teks
-        while ((match = regex.exec(normalizedText)) !== null) {
-            // Simpan informasi kata yang diganti
+        // Jika hasil normalisasi cocok dengan kata kasar
+        if (badWords[normalized]) {
+            const replacement = badWords[normalized]; // Ambil kata pengganti dari DB
+
+            // Tambahkan data ke filteredWords (dengan kata asli sebelum normalisasi)
             filteredWords.push({
-                original: badWord,
-                replacement,
-                position: match.index
+                original: normalized,      // Kata kasar hasil normalisasi, misal: "anjing"
+                replacement: replacement,  // Kata pengganti, misal: "kurang ajar"
+                position: currentIndex,    // Posisi kata dalam teks asli
+                rawWord: word              // Kata asli dalam teks pengguna, misal: "4njing"
             });
 
-            // Ambil kata asli dari teks (tanpa normalisasi)
-            const originalSubText = text.substring(match.index, match.index + badWord.length);
-
-            // Ganti kata kasar dengan kata pengganti
-            filteredText = filteredText.replace(originalSubText, replacement);
+            // Tambahkan kata pengganti ke teks hasil filter
+            filteredText += replacement;
+        } else {
+            // Jika bukan kata kasar, tambahkan apa adanya
+            filteredText += word;
         }
+
+        // Update posisi berjalan berdasarkan panjang kata
+        currentIndex += word.length;
     }
 
-    // Mengembalikan hasil filter dan daftar kata yang diganti
-    return { filteredText, filteredWords };
+    // Kembalikan teks hasil filter dan daftar kata-kata yang diganti
+    return {
+        filteredText,
+        filteredWords
+    };
 }
+

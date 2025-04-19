@@ -76,6 +76,10 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
         res.status(200).json({
             status: "success",
             message: "Login successful",
+            role: user.role?.name,
+            username: user.username,
+            email: user.email,
+            userId: user.id,
             firstLogin,
             accessToken,
             refreshToken,

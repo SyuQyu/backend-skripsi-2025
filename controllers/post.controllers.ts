@@ -66,6 +66,7 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
         res.status(200).json({
             status: "success",
             original: text,
+            filteredWords: filteredWords, // [{ original: "anjing", replacement: "hewan", position: 5, rawWord: "4njing" }]
             filtered: filteredText,
             bannedWords: bannedWords,         // ["goblok", "anjing"]
             replacementWords: replacementWords // ["bodoh", "hewan"]

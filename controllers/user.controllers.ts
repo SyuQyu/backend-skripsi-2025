@@ -1,24 +1,40 @@
-import { userQueries } from "../queries";
+import { roleQueries, userQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
 import bcrypt from "bcrypt";
 export async function createUserHandler(req: Request, res: Response): Promise<void> {
     try {
-        const userData = req.body;
-        const newUser = await userQueries.createUser(userData);
+        const data = req.body;
+
+        // Hash password
+        const hashedPassword: string = await bcrypt.hash(data.password, 10);
+
+        // Ambil role default 'User'
+        const setRole = await roleQueries.getRoleByName("User");
+        if (!setRole) throw new CustomError(500, "Internal Server Error: Role not found");
+
+        // Buat user baru
+        const newUser = await userQueries.createUser({
+            ...data,
+            password: hashedPassword,
+            firstLogin: true,
+            roleId: setRole.id,
+        });
+
         res.status(201).json({
             status: "success",
-            message: 'User created successfully',
-            user: newUser
+            message: "User created successfully",
+            user: newUser,
         });
     } catch (error: any) {
         const statusCode = error instanceof CustomError ? error.code : 500;
         res.status(statusCode).json({
             status: "error",
-            message: error.message
+            message: error.message,
         });
     }
 }
+
 
 
 
