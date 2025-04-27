@@ -54,6 +54,7 @@ async function getRepliesByTag(tag: string): Promise<any[]> {
                 }
             },
             reports: true,
+            replyView: true,
             replies: {
                 orderBy: { createdAt: 'desc' },
                 include: {
@@ -104,4 +105,17 @@ async function getRepliesByPostId(postId: string) {
     return await prisma.reply.findMany({ where: { postId } });
 }
 
-export { createReply, getReplyById, updateReply, deleteReply, getReplies, getRepliesByPostId, getRepliesByTag };
+async function incrementReplyViewOnce(replyId: string, userId: string): Promise<void> {
+    const existing = await prisma.replyView.findFirst({
+        where: { replyId, userId }
+    });
+
+    if (!existing) {
+        await prisma.replyView.create({
+            data: { replyId, userId }
+        });
+    }
+}
+
+
+export { createReply, incrementReplyViewOnce, getReplyById, updateReply, deleteReply, getReplies, getRepliesByPostId, getRepliesByTag };

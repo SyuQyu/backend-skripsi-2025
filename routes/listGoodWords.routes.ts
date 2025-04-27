@@ -11,5 +11,6 @@ router.get('/all', listGoodWordsController.listAllListGoodWordsHandler);
 router.get('/:goodWordId', listGoodWordsController.getListGoodWordsByIdHandler);
 router.put('/:goodWordId', listGoodWordsController.updateListGoodWordsHandler);
 router.delete('/:goodWordId', listGoodWordsController.deleteListGoodWordsHandler);
+router.post('/bluk/create', listGoodWordsController.bulkInsertListGoodWordsHandler);
 
 export default router;

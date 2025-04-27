@@ -22,7 +22,7 @@ export async function createListGoodWordsHandler(req: Request, res: Response): P
 
 export async function getListGoodWordsByIdHandler(req: Request, res: Response): Promise<void> {
     try {
-        const listGoodWords = await listGoodWordsQueries.getListGoodWordById(req.params.listGoodWordsId);
+        const listGoodWords = await listGoodWordsQueries.getListGoodWordById(req.params.goodWordId);
         if (!listGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -43,7 +43,7 @@ export async function getListGoodWordsByIdHandler(req: Request, res: Response): 
 export async function updateListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
         const updatedListGoodWordsData = req.body;
-        const updatedListGoodWords = await listGoodWordsQueries.updateListGoodWord(req.params.listGoodWordsId, updatedListGoodWordsData);
+        const updatedListGoodWords = await listGoodWordsQueries.updateListGoodWord(req.params.goodWordId, updatedListGoodWordsData);
         if (!updatedListGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -63,7 +63,7 @@ export async function updateListGoodWordsHandler(req: Request, res: Response): P
 
 export async function deleteListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
-        const deletedListGoodWords = await listGoodWordsQueries.deleteListGoodWord(req.params.listGoodWordsId);
+        const deletedListGoodWords = await listGoodWordsQueries.deleteListGoodWord(req.params.goodWordId);
         if (!deletedListGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -109,6 +109,35 @@ export async function getGoodWordbyWordHandler(req: Request, res: Response): Pro
             status: "success",
             message: 'GoodWord found',
             goodWord
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
+
+export async function bulkInsertListGoodWordsHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const wordMap = req.body; // Expected format: { "badWord1": "goodWord1", ... }
+
+        if (!wordMap || typeof wordMap !== 'object') {
+            throw new CustomError(400, 'Invalid format. Expected an object with badWord: goodWord pairs.');
+        }
+
+        const wordPairs = Object.entries(wordMap).map(([badWord, substitute]) => ({
+            word: badWord,
+            substitute: substitute as string
+        }));
+
+        const result = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
+
+        res.status(201).json({
+            status: "success",
+            message: `${result.count} ListGoodWords inserted successfully`,
+            insertedWords: result.insertedWords
         });
     } catch (error: any) {
         const statusCode = error instanceof CustomError ? error.code : 500;

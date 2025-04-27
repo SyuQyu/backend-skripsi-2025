@@ -18,11 +18,64 @@ async function deleteListGoodWord(id: string) {
 }
 
 async function getListGoodWords() {
-    return await prisma.listGoodWords.findMany();
+    return await prisma.listGoodWords.findMany({
+        include: {
+            badWord: {
+                select: {
+                    id: true,
+                    word: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            }
+        }
+    });
+}
+
+async function blukCreateGoodBadWords(wordPairs: { word: string; substitute: string }[]) {
+    const insertedWords: any[] = [];
+
+    for (const { word, substitute } of wordPairs) {
+        // Check if bad word exists
+        let badWord = await prisma.listBadWords.findFirst({
+            where: { word }
+        });
+
+        // If not, create it
+        if (!badWord) {
+            badWord = await prisma.listBadWords.create({
+                data: { word }
+            });
+        }
+
+        // Check if the good word for this bad word already exists
+        const existing = await prisma.listGoodWords.findFirst({
+            where: {
+                word: substitute,
+                badWordId: badWord.id
+            }
+        });
+
+        // If not exists, insert
+        if (!existing) {
+            const newGoodWord = await prisma.listGoodWords.create({
+                data: {
+                    word: substitute,
+                    badWordId: badWord.id
+                }
+            });
+            insertedWords.push(newGoodWord);
+        }
+    }
+
+    return {
+        count: insertedWords.length,
+        insertedWords
+    };
 }
 
 async function getGoodWordbyWord(word: string) {
     return await prisma.listGoodWords.findFirst({ where: { word } });
 }
 
-export { createListGoodWord, getListGoodWordById, updateListGoodWord, deleteListGoodWord, getListGoodWords, getGoodWordbyWord };
+export { createListGoodWord, blukCreateGoodBadWords, getListGoodWordById, updateListGoodWord, deleteListGoodWord, getListGoodWords, getGoodWordbyWord };

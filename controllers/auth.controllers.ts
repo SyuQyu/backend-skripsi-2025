@@ -157,7 +157,7 @@ export async function refreshTokenHandler(req: Request, res: Response): Promise<
     try {
         const { token }: { token: string } = req.body;
         if (!token) throw new CustomError(403, "Forbidden: No refresh token provided");
-
+        console.log(token);
         const user: User | null = await userQueries.getUserByRefreshToken(token);
         if (!user) throw new CustomError(403, "Forbidden: Invalid refresh token");
 

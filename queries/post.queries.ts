@@ -9,6 +9,7 @@ async function attachRepliesToPosts(posts: Post[]): Promise<(Post & { replies: a
             user: { select: { id: true, username: true } },
             likes: true,
             reports: true,
+            replyView: true,
         }
     });
 
@@ -27,6 +28,47 @@ async function attachRepliesToPosts(posts: Post[]): Promise<(Post & { replies: a
     }));
 }
 
+async function getTotalPosts(): Promise<number> {
+    return await prisma.post.count();
+}
+
+async function growthPosts(days: number = 30) {
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+
+    const posts = await prisma.post.findMany({
+        where: {
+            createdAt: {
+                gte: fromDate,
+            },
+        },
+        select: {
+            createdAt: true,
+        },
+    });
+
+    const dailyGrowth: Record<string, number> = {};
+
+    posts.forEach(post => {
+        const date = post.createdAt.toISOString().split('T')[0];
+        dailyGrowth[date] = (dailyGrowth[date] || 0) + 1;
+    });
+
+    const result: { date: string; count: number }[] = [];
+    for (let i = days; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const formattedDate = date.toISOString().split('T')[0];
+
+        result.push({
+            date: formattedDate,
+            count: dailyGrowth[formattedDate] || 0,
+        });
+    }
+
+    return result;
+}
+
 
 async function createPost(data: Omit<Post, "id">): Promise<Post> {
     return await prisma.post.create({ data });
@@ -40,6 +82,7 @@ async function getPostById(id: string): Promise<(Post & { replies: any[] }) | nu
             likes: true,
             tags: { select: { tag: true } },
             reports: true,
+            postView: true,
         }
     });
 
@@ -52,6 +95,7 @@ async function getPostById(id: string): Promise<(Post & { replies: any[] }) | nu
             user: { select: { id: true, username: true } },
             likes: true,
             reports: true,
+            replyView: true,
         }
     });
 
@@ -76,6 +120,7 @@ async function getPostWithRepliesQuery(id: string, skip = 0, take = 10) {
             tags: true,
             likes: true,
             reports: true,
+            postView: true,
             replies: {
                 skip,
                 take,
@@ -105,6 +150,7 @@ async function getPostByUser(userId: string): Promise<(Post & { replies: any[] }
             likes: true,
             tags: { select: { tag: true } },
             reports: true,
+            postView: true,
         }
     });
 
@@ -127,6 +173,7 @@ async function getPostByContent(content: string): Promise<(Post & { replies: any
             likes: true,
             tags: { select: { tag: true } },
             reports: true,
+            postView: true,
         }
     });
 
@@ -143,6 +190,7 @@ async function getPostByTag(tag: string): Promise<(Post & { replies: any[] })[]>
             likes: true,
             tags: { select: { tag: true } },
             reports: true,
+            postView: true,
         }
     });
 
@@ -168,10 +216,28 @@ async function getAllPosts(skip = 0, take = 10): Promise<(Post & { replies: any[
             likes: true,
             tags: { select: { tag: true } },
             reports: true,
+            postView: true,
         }
     });
 
     return await attachRepliesToPosts(posts);
 }
 
-export { createPost, getPostById, updatePost, deletePost, getAllPosts, getPostByUser, getPostWithRepliesQuery, getPostByTag, getPostByContent };
+async function incrementPostViewOnce(postId: string, userId: string): Promise<void> {
+    const existingView = await prisma.postView.findUnique({
+        where: {
+            postId_userId: {
+                postId,
+                userId
+            }
+        }
+    });
+
+    if (!existingView) {
+        await prisma.postView.create({
+            data: { postId, userId }
+        });
+    }
+}
+
+export { getTotalPosts, growthPosts, incrementPostViewOnce, createPost, getPostById, updatePost, deletePost, getAllPosts, getPostByUser, getPostWithRepliesQuery, getPostByTag, getPostByContent };

@@ -9,6 +9,7 @@ import * as reportController from './report.controllers';
 import * as roleController from './role.controllers';
 import * as tagController from './tag.controllers';
 import * as authController from './auth.controllers';
+import * as dashboardDataController from './dashboardData.controllers';
 export {
     userController,
     imageController,
@@ -20,5 +21,6 @@ export {
     reportController,
     roleController,
     tagController,
-    authController
+    authController,
+    dashboardDataController,
 };

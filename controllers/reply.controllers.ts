@@ -155,3 +155,26 @@ export async function getRepliesByPostIdHandler(req: Request, res: Response): Pr
         });
     }
 }
+
+export async function incrementReplyViewHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { replyId, userId } = req.body;
+
+        if (!replyId || !userId) {
+            throw new CustomError(400, 'replyId and userId are required');
+        }
+
+        await replyQueries.incrementReplyViewOnce(replyId, userId);
+
+        res.status(200).json({
+            status: "success",
+            message: "Reply view count incremented (if not already viewed by this user)"
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}

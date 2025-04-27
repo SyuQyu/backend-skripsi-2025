@@ -15,5 +15,6 @@ router.get('/:postId', postController.getPostByIdHandler);
 router.put('/:postId', postController.updatePostHandler);
 router.delete('/:postId', postController.deletePostHandler);
 router.post('/check/word', postController.checkWordHandler);
+router.post('/increment/view', postController.incrementPostViewHandler);
 
 export default router

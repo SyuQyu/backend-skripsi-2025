@@ -16,6 +16,48 @@ async function getUserById(userId: string) {
     return user;
 }
 
+async function growthUsers(days: number = 30) {
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+
+    const users = await prisma.user.findMany({
+        where: {
+            createdAt: {
+                gte: fromDate,
+            },
+        },
+        select: {
+            createdAt: true,
+        },
+    });
+
+    const dailyGrowth: Record<string, number> = {};
+
+    users.forEach(user => {
+        const date = user.createdAt.toISOString().split('T')[0];
+        dailyGrowth[date] = (dailyGrowth[date] || 0) + 1;
+    });
+
+    const result: { date: string; count: number }[] = [];
+    for (let i = days; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const formattedDate = date.toISOString().split('T')[0];
+
+        result.push({
+            date: formattedDate,
+            count: dailyGrowth[formattedDate] || 0,
+        });
+    }
+
+    return result;
+}
+
+async function getTotalUsers() {
+    const totalUsers = await prisma.user.count();
+    return totalUsers;
+}
+
 async function resetPassword(userId: string, password: string) {
     const user = await prisma.user.update({
         where: { id: userId },
@@ -79,4 +121,4 @@ async function getUserByRefreshToken(refreshToken: string) {
 }
 
 
-export { getUsers, resetPassword, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };
+export { growthUsers, getTotalUsers, getUsers, resetPassword, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };

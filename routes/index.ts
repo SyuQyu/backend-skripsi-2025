@@ -10,6 +10,7 @@ import reportRoutes from "./report.routes";
 import roleRoutes from "./role.routes";
 import tagRoutes from "./tag.routes";
 import authRoutes from "./auth.routes";
+import dashboardDataRoutes from "./dashboardData.routes";
 const router = Router();
 router.use("/user", userRoutes);
 router.use("/posts", postRoutes);
@@ -22,5 +23,5 @@ router.use("/reports", reportRoutes);
 router.use("/roles", roleRoutes);
 router.use("/tags", tagRoutes);
 router.use("/auth", authRoutes);
-
+router.use("/dashboard", dashboardDataRoutes);
 export default router;

@@ -11,7 +11,7 @@ model ListGoodWords {
     id        String       @id @default(cuid())
     word      String
     badWordId String
-    badWord   ListBadWords @relation(fields: [badWordId], references: [id])
+    badWord   ListBadWords @relation(fields: [badWordId], references: [id], onDelete: Cascade)
     createdAt DateTime     @default(now())
     updatedAt DateTime     @default(now()) @updatedAt
 }
@@ -33,26 +33,28 @@ model Role {
 }
 
 model User {
-    id             String   @id @default(cuid())
+    id             String      @id @default(cuid())
     roleId         String
-    role           Role     @relation(fields: [roleId], references: [id])
+    role           Role        @relation(fields: [roleId], references: [id])
     fullName       String?
-    username       String   @unique
-    email          String   @unique
+    username       String      @unique
+    email          String      @unique
     password       String
     phone          String?
     nim            String?
     faculty        String?
     gender         String?
-    firstLogin     Boolean  @default(false)
+    firstLogin     Boolean     @default(false)
     profilePicture String?
     refreshToken   String? // Menyimpan refresh token untuk autentikasi
     posts          Post[]
     replies        Reply[]
     reports        Report[]
     likes          Like[]
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @default(now()) @updatedAt
+    createdAt      DateTime    @default(now())
+    updatedAt      DateTime    @default(now()) @updatedAt
+    postView       PostView[]
+    replyView      ReplyView[]
 }
 
 model Tag {
@@ -65,19 +67,30 @@ model Tag {
 }
 
 model Post {
-    id              String    @id @default(cuid())
+    id              String     @id @default(cuid())
     userId          String
     content         String
     filteredContent String?
-    viewCount       Int       @default(0)
-    user            User      @relation(fields: [userId], references: [id])
+    user            User       @relation(fields: [userId], references: [id])
     tags            PostTag[]
     replies         Reply[]
     images          Image[]
     likes           Like[]
     reports         Report[]
-    createdAt       DateTime  @default(now())
-    updatedAt       DateTime  @default(now()) @updatedAt
+    createdAt       DateTime   @default(now())
+    updatedAt       DateTime   @default(now()) @updatedAt
+    postView        PostView[]
+}
+
+model PostView {
+    id        String   @id @default(cuid())
+    postId    String
+    userId    String
+    post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+
+    @@unique([postId, userId]) // pastikan 1 user hanya bisa view 1 kali per post
 }
 
 model PostTag {
@@ -92,22 +105,34 @@ model PostTag {
 }
 
 model Reply {
-    id              String     @id @default(uuid())
+    id              String      @id @default(uuid())
     content         String
     userId          String
     postId          String
     filteredContent String?
-    user            User       @relation(fields: [userId], references: [id])
-    post            Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
-    replies         Reply[]    @relation("ReplyToReply")
-    parentId        String?    @map("replyId")
-    parent          Reply?     @relation("ReplyToReply", fields: [parentId], references: [id])
+    user            User        @relation(fields: [userId], references: [id])
+    post            Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+    replies         Reply[]     @relation("ReplyToReply")
+    parentId        String?     @map("replyId")
+    parent          Reply?      @relation("ReplyToReply", fields: [parentId], references: [id])
     images          Image[]
     likes           Like[]
     reports         Report[]
     tags            ReplyTag[] // Relasi ke tabel ReplyTag
-    createdAt       DateTime   @default(now())
-    updatedAt       DateTime   @default(now()) @updatedAt
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @default(now()) @updatedAt
+    replyView       ReplyView[]
+}
+
+model ReplyView {
+    id        String   @id @default(cuid())
+    replyId   String
+    userId    String
+    reply     Reply    @relation(fields: [replyId], references: [id], onDelete: Cascade)
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+
+    @@unique([replyId, userId]) // satu user hanya bisa view satu kali per reply
 }
 
 model ReplyTag {

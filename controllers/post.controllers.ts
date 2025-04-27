@@ -220,3 +220,25 @@ export async function getAllPostsHandler(req: Request, res: Response): Promise<v
     }
 }
 
+export async function incrementPostViewHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { postId, userId } = req.body;
+
+        if (!postId || !userId) {
+            throw new CustomError(400, 'postId and userId are required');
+        }
+
+        await postQueries.incrementPostViewOnce(postId, userId);
+
+        res.status(200).json({
+            status: "success",
+            message: "View count incremented (if not already viewed by this user)"
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
