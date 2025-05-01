@@ -1,7 +1,7 @@
 import { postQueries, tagQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
-import { boyerMooreFilter } from "../algoritma/filterTeks";
+import { boyerMooreFilter } from "../algoritma/filterTeks-new";
 
 export async function createPostHandler(req: Request, res: Response): Promise<void> {
     try {

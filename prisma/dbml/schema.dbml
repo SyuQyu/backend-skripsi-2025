@@ -1,0 +1,231 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table ListGoodWords {
+  id String [pk]
+  word String [not null]
+  badWordId String [not null]
+  badWord ListBadWords [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table ListBadWords {
+  id String [pk]
+  word String [not null]
+  goodWords ListGoodWords [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table Role {
+  id String [pk]
+  name String [not null]
+  users User [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table User {
+  id String [pk]
+  roleId String [not null]
+  role Role [not null]
+  fullName String
+  username String [unique, not null]
+  email String [unique, not null]
+  password String [not null]
+  phone String
+  nim String
+  faculty String
+  gender String
+  firstLogin Boolean [not null, default: false]
+  profilePicture String
+  refreshToken String
+  posts Post [not null]
+  replies Reply [not null]
+  reports Report [not null]
+  likes Like [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+  postView PostView [not null]
+  replyView ReplyView [not null]
+}
+
+Table Tag {
+  id String [pk]
+  tag String [unique, not null]
+  posts PostTag [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+  ReplyTag ReplyTag [not null]
+}
+
+Table Post {
+  id String [pk]
+  userId String [not null]
+  content String [not null]
+  filteredContent String
+  user User [not null]
+  tags PostTag [not null]
+  replies Reply [not null]
+  images Image [not null]
+  likes Like [not null]
+  reports Report [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+  postView PostView [not null]
+}
+
+Table PostView {
+  id String [pk]
+  postId String [not null]
+  userId String [not null]
+  post Post [not null]
+  user User [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (postId, userId) [unique]
+  }
+}
+
+Table PostTag {
+  postId String [not null]
+  tagId String [not null]
+  post Post [not null]
+  tag Tag [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (postId, tagId) [pk]
+  }
+}
+
+Table Reply {
+  id String [pk]
+  content String [not null]
+  userId String [not null]
+  postId String [not null]
+  filteredContent String
+  user User [not null]
+  post Post [not null]
+  replies Reply [not null]
+  parentId String
+  parent Reply
+  images Image [not null]
+  likes Like [not null]
+  reports Report [not null]
+  tags ReplyTag [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+  replyView ReplyView [not null]
+}
+
+Table ReplyView {
+  id String [pk]
+  replyId String [not null]
+  userId String [not null]
+  reply Reply [not null]
+  user User [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (replyId, userId) [unique]
+  }
+}
+
+Table ReplyTag {
+  replyId String [not null]
+  tagId String [not null]
+  reply Reply [not null]
+  tag Tag [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (replyId, tagId) [pk]
+  }
+}
+
+Table Image {
+  id String [pk]
+  postId String
+  replyId String
+  imageUrl String [not null]
+  post Post
+  reply Reply
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table Like {
+  id String [pk]
+  userId String [not null]
+  postId String
+  replyId String
+  user User [not null]
+  post Post
+  reply Reply
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table Report {
+  id String [pk]
+  postId String
+  replyId String
+  userId String [not null]
+  violationCategory String [not null]
+  message String [not null]
+  post Post
+  reply Reply
+  user User [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Ref: ListGoodWords.badWordId > ListBadWords.id [delete: Cascade]
+
+Ref: User.roleId > Role.id
+
+Ref: Post.userId > User.id
+
+Ref: PostView.postId > Post.id [delete: Cascade]
+
+Ref: PostView.userId > User.id [delete: Cascade]
+
+Ref: PostTag.postId > Post.id [delete: Cascade]
+
+Ref: PostTag.tagId > Tag.id
+
+Ref: Reply.userId > User.id
+
+Ref: Reply.postId > Post.id [delete: Cascade]
+
+Ref: Reply.parentId > Reply.id
+
+Ref: ReplyView.replyId > Reply.id [delete: Cascade]
+
+Ref: ReplyView.userId > User.id [delete: Cascade]
+
+Ref: ReplyTag.replyId > Reply.id [delete: Cascade]
+
+Ref: ReplyTag.tagId > Tag.id
+
+Ref: Image.postId > Post.id
+
+Ref: Image.replyId > Reply.id
+
+Ref: Like.userId > User.id
+
+Ref: Like.postId > Post.id [delete: Cascade]
+
+Ref: Like.replyId > Reply.id [delete: Cascade]
+
+Ref: Report.postId > Post.id [delete: Cascade]
+
+Ref: Report.replyId > Reply.id [delete: Cascade]
+
+Ref: Report.userId > User.id [delete: Cascade]
