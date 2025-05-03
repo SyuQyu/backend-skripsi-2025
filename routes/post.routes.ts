@@ -6,15 +6,15 @@ import {
 
 const router = Router();
 
-router.post('/', postController.createPostHandler);
-router.get('/all', authMiddleware(["User", "Admin"]), postController.getAllPostsHandler);
-router.get('/search/:content', postController.getPostByContentHandler);
-router.get('/tag/:tag', postController.getPostByTagHandler);
-router.get('/user/:userId', postController.getPostByUserHandler);
-router.get('/:postId', postController.getPostByIdHandler);
-router.put('/:postId', postController.updatePostHandler);
-router.delete('/:postId', postController.deletePostHandler);
-router.post('/check/word', postController.checkWordHandler);
-router.post('/increment/view', postController.incrementPostViewHandler);
+router.post('/', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.createPostHandler);
+router.get('/all', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getAllPostsHandler);
+router.get('/search/:content', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getPostByContentHandler);
+router.get('/tag/:tag', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getPostByTagHandler);
+router.get('/user/:userId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getPostByUserHandler);
+router.get('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getPostByIdHandler);
+router.put('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.updatePostHandler);
+router.delete('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.deletePostHandler);
+router.post('/check/word', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.checkWordHandler);
+router.post('/increment/view', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.incrementPostViewHandler);
 
 export default router

@@ -68,6 +68,47 @@ function buildBadCharacterTable(pattern: string): Record<string, number> {
 }
 
 /**
+ * Fungsi pencarian kemunculan substring (pattern) dalam haystack normalized
+ * Menggunakan algoritma Boyer-Moore (bad character rule).
+ * Mengembalikan array match: { start, end, pattern, rawWord }
+ */
+function boyerMooreSearch(
+    haystack: string,
+    origText: string,
+    origMapping: number[],
+    pattern: string
+): Array<{ start: number; end: number; pattern: string; rawWord: string }> {
+    const results: Array<{ start: number; end: number; pattern: string; rawWord: string }> = [];
+    const badCharTable = buildBadCharacterTable(pattern);
+    let i = 0;
+
+    while (i <= haystack.length - pattern.length) {
+        let j = pattern.length - 1;
+        // console.log(`[BM] Pattern "${pattern}" - Cek di index normalized: ${i} (window: "${haystack.slice(i, i + pattern.length)}")`);
+        while (j >= 0 && haystack[i + j] === pattern[j]) {
+            // console.log(`    [BM]   Karakter cocok "${haystack[i + j]}" di posisi pattern ${j}`);
+            j--;
+        }
+        if (j < 0) {
+            // Cocok, mapping ke posisi asli
+            const origStart = origMapping[i];
+            const origEnd = origMapping[i + pattern.length - 1] + 1;
+            const { start, end, rawWord } = expandToWord(origText, origStart, origEnd);
+            // console.log(`[BM] >> Match ditemukan untuk "${pattern}" di teks asli index: [${start}-${end}], kata: "${rawWord}"`);
+            results.push({ start, end, pattern, rawWord });
+            i += pattern.length;
+        } else {
+            const shiftChar = haystack[i + j];
+            const shiftValue = badCharTable[shiftChar] ?? pattern.length;
+            // console.log(
+            //     `[BM]   Tidak cocok pada posisi pattern ${j}. Karakter "${shiftChar}" menyebabkan shift: ${shiftValue}`
+            // );
+            i += shiftValue;
+        }
+    }
+    return results;
+}
+/**
  * Membangun regex fuzzy (toleran):
  * Setiap huruf dalam pola diizinkan memiliki jeda antar huruf,
  * sehingga pola seperti "b*a*n*g*s*a*t" tetap cocok.
@@ -89,37 +130,7 @@ function expandToWord(text: string, startIdx: number, endIdx: number): { start: 
 }
 
 /**
- * Memetakan urutan huruf dalam kata hasil normalisasi ke index asli per token/word.
- */
-function mapNormalTokenToOriginal(
-    orig: string,
-    norm: string
-): number[] {
-    let origIdx = 0;
-    let normIdx = 0;
-    const charMap: Record<string, string> = {
-        '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't'
-    };
-    let map: number[] = [];
-    while (origIdx < orig.length && normIdx < norm.length) {
-        let ch = orig[origIdx].toLowerCase();
-        if (charMap[ch]) ch = charMap[ch]; // Ganti angka l33t dengan huruf
-        if (!/[a-z]/.test(ch)) { origIdx++; continue; } // Abaikan karakter non-alfabet
-        if (ch === norm[normIdx]) {
-            map[normIdx] = origIdx; // Simpan mapping
-            normIdx++;
-        }
-        origIdx++;
-    }
-    return map;
-}
-
-/**
  * Fungsi utama untuk memfilter teks.
- * Mendukung:
- * - Algoritma Boyer-Moore untuk pencarian pola pada teks hasil normalisasi.
- * - Fuzzy regex untuk mendeteksi pola dengan karakter tambahan atau selipan.
- * Menghindari overlap pada penggantian kata.
  */
 export async function boyerMooreFilter(
     text: string
@@ -150,22 +161,14 @@ export async function boyerMooreFilter(
     // --- STEP 1: Pencarian dengan Boyer-Moore pada teks hasil normalisasi ---
     for (const pattern in badWords) {
         const replacement = badWords[pattern];
-        const table = buildBadCharacterTable(pattern); // Buat tabel shift
-
-        let i = 0;
-        while (i <= normalizedText.length - pattern.length) {
-            let j = pattern.length - 1;
-            while (j >= 0 && normalizedText[i + j] === pattern[j]) { j--; } // Cocokkan pola dari belakang
-            if (j < 0) {
-                // Jika cocok, mapping ke index asli
-                const origStart = normToOrig[i];
-                const origEnd = normToOrig[i + pattern.length - 1] + 1;
-                const { start, end, rawWord } = expandToWord(text, origStart, origEnd);
-                matches.push({ original: pattern, replacement, start, end, rawWord });
-                i += pattern.length; // Geser sejauh panjang pola
-            } else {
-                i += table[normalizedText[i + j]] ?? pattern.length; // Geser sesuai tabel shift
-            }
+        const matchesBm = boyerMooreSearch(
+            normalizedText,
+            text,
+            normToOrig,
+            pattern
+        );
+        for (const m of matchesBm) {
+            matches.push({ original: pattern, replacement, start: m.start, end: m.end, rawWord: m.rawWord });
         }
     }
 

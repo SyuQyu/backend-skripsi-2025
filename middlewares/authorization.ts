@@ -10,7 +10,7 @@ type TPayload = {
     userId: string;
 };
 
-export function authMiddleware(allowedRoles?: ("Admin" | "User")[]) {
+export function authMiddleware(allowedRoles?: ("Admin" | "User" | "SuperAdmin")[]) {
     return (req: Request, res: Response, next: NextFunction): void => {
         const sendError = (status: number, message: string) =>
             res.status(status).json({ status: "error", message });

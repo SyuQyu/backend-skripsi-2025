@@ -97,10 +97,44 @@ async function deleteReply(id: string) {
     return await prisma.reply.delete({ where: { id } });
 }
 
-async function getReplies() {
-    return await prisma.reply.findMany();
+async function getReplies(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    return await prisma.reply.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    username: true,
+                }
+            },
+            likes: true,
+            tags: {
+                select: {
+                    tag: true
+                }
+            },
+            reports: true,
+            replyView: true,
+            replies: {
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                        }
+                    },
+                    likes: true,
+                    reports: true,
+                    replies: true
+                }
+            }
+        }
+    });
 }
-
 async function getRepliesByPostId(postId: string) {
     return await prisma.reply.findMany({ where: { postId } });
 }

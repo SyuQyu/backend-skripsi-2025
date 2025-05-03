@@ -46,6 +46,23 @@ export async function createReplyHandler(req: Request, res: Response): Promise<v
     }
 }
 
+export async function getRepliesHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const replies = await replyQueries.getReplies(Number(page), Number(limit));
+        res.status(200).json({
+            status: "success",
+            message: 'Replies found',
+            replies
+        });
+    } catch (error: any) {
+        const statusCode = error instanceof CustomError ? error.code : 500;
+        res.status(statusCode).json({
+            status: "error",
+            message: error.message
+        });
+    }
+}
 
 export async function getReplyByTagHandler(req: Request, res: Response): Promise<void> {
     try {

@@ -6,9 +6,9 @@ import {
 
 const router = Router();
 
-router.get('/total-users', authMiddleware(["Admin"]), dashboardDataController.getTotalUsersHandler);
-router.get('/total-posts', authMiddleware(["Admin"]), dashboardDataController.getTotalPostsHandler);
-router.get('/growth-users', authMiddleware(["Admin"]), dashboardDataController.growthUserHandler);
-router.get('/growth-posts', authMiddleware(["Admin"]), dashboardDataController.growthPostHandler);
+router.get('/total-users', authMiddleware(["Admin", "SuperAdmin"]), dashboardDataController.getTotalUsersHandler);
+router.get('/total-posts', authMiddleware(["Admin", "SuperAdmin"]), dashboardDataController.getTotalPostsHandler);
+router.get('/growth-users', authMiddleware(["Admin", "SuperAdmin"]), dashboardDataController.growthUserHandler);
+router.get('/growth-posts', authMiddleware(["Admin", "SuperAdmin"]), dashboardDataController.growthPostHandler);
 
 export default router;

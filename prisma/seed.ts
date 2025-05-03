@@ -9,6 +9,7 @@ async function main() {
         data: [
             { name: 'Admin' },
             { name: 'User' },
+            { name: 'SuperAdmin' }
         ],
         skipDuplicates: true
     });
@@ -16,8 +17,9 @@ async function main() {
     // Fetch roles
     const adminRole = await prisma.role.findFirst({ where: { name: 'Admin' } });
     const userRole = await prisma.role.findFirst({ where: { name: 'User' } });
+    const superAdminRole = await prisma.role.findFirst({ where: { name: 'SuperAdmin' } });
 
-    if (!adminRole || !userRole) throw new Error('Roles not found');
+    if (!adminRole || !userRole || !superAdminRole) throw new Error('Roles not found');
 
     // Seed users
     await prisma.user.createMany({
@@ -28,6 +30,13 @@ async function main() {
                 email: 'alice@prisma.io',
                 password: await bcrypt.hash('password456', 10),
                 roleId: adminRole.id
+            },
+            {
+                fullName: 'Pandu Super Admin',
+                username: 'pandusuperadmin',
+                email: 'pandu@prisma.io',
+                password: await bcrypt.hash('password456', 10),
+                roleId: superAdminRole.id
             },
             {
                 fullName: 'Bob User',
