@@ -6,10 +6,10 @@ import {
 
 const router = Router();
 
-router.post('/', roleController.createRoleHandler);
-router.get('/all', roleController.getRolesHandler);
-router.get('/:roleId', roleController.getRoleByIdHandler);
-router.put('/:roleId', roleController.updateRoleHandler);
-router.delete('/:roleId', roleController.deleteRoleHandler);
+router.post('/', authMiddleware(["SuperAdmin"]), roleController.createRoleHandler);
+router.get('/all', authMiddleware(["SuperAdmin"]), roleController.getRolesHandler);
+router.get('/:roleId', authMiddleware(["SuperAdmin"]), roleController.getRoleByIdHandler);
+router.put('/:roleId', authMiddleware(["SuperAdmin"]), roleController.updateRoleHandler);
+router.delete('/:roleId', authMiddleware(["SuperAdmin"]), roleController.deleteRoleHandler);
 
 export default router;
