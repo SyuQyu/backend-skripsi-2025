@@ -1,18 +1,26 @@
+# This is a basic workflow to help you get started with Actions
+
 name: Node.js CD
 
+# Controls when the action will run.
 on:
+  # Triggers the workflow on push or pull request events but only for the master branch
   push:
     branches: [main]
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  # This workflow contains a single job called "build"
   build:
+    # The type of runner that the job will run on
     runs-on: ubuntu-22.04
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Node.js v20
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "20"
@@ -23,7 +31,7 @@ jobs:
       - name: Build Next.js app
         run: yarn run build
 
-      - name: Deploy to server via SSH
+      - name: Deploy using ssh
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -31,10 +39,11 @@ jobs:
           key: ${{ secrets.PRIVATE_KEY }}
           port: 22
           script: |
-            cd /var/www/frontend-skrispi-2025 || exit 1
-            git pull origin main
-            yarn install --frozen-lockfile
-            pm2 stop 0 || true
+            cd /var/www/backend-skrispi-2025
+            git pull
+            git status
+            pm2 stop 0
+            yarn install
             npx prisma migrate dev
             yarn run build
             pm2 restart 0
