@@ -14,7 +14,7 @@ router.get('/user/:userId', authMiddleware(["User", "Admin", "SuperAdmin"]), pos
 router.get('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.getPostByIdHandler);
 router.put('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.updatePostHandler);
 router.delete('/:postId', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.deletePostHandler);
-router.post('/check/word', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.checkWordHandler);
+router.post('/check/word', postController.checkWordHandler);
 router.post('/increment/view', authMiddleware(["User", "Admin", "SuperAdmin"]), postController.incrementPostViewHandler);
 
 export default router

@@ -21,13 +21,14 @@ export async function createReplyHandler(req: Request, res: Response): Promise<v
         );
 
         // Filter content using Boyer-Moore algorithm
-        const { filteredText } = await boyerMooreFilter(content);
+        const { filteredText, durationMs } = await boyerMooreFilter(content);
 
         // Create new reply
         const newReply = await replyQueries.createReply({
             ...replyData,
             content,
             filteredContent: filteredText,
+            durationFilteredContent: durationMs
         });
 
         // Associate reply with tags

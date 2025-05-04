@@ -72,19 +72,20 @@ model Tag {
 }
 
 model Post {
-    id              String     @id @default(cuid())
-    userId          String
-    content         String
-    filteredContent String?
-    user            User       @relation(fields: [userId], references: [id])
-    tags            PostTag[]
-    replies         Reply[]
-    images          Image[]
-    likes           Like[]
-    reports         Report[]
-    createdAt       DateTime   @default(now())
-    updatedAt       DateTime   @default(now()) @updatedAt
-    postView        PostView[]
+    id                      String     @id @default(cuid())
+    userId                  String
+    content                 String
+    filteredContent         String?
+    durationFilteredContent Int?
+    user                    User       @relation(fields: [userId], references: [id])
+    tags                    PostTag[]
+    replies                 Reply[]
+    images                  Image[]
+    likes                   Like[]
+    reports                 Report[]
+    createdAt               DateTime   @default(now())
+    updatedAt               DateTime   @default(now()) @updatedAt
+    postView                PostView[]
 }
 
 model PostView {
@@ -110,23 +111,24 @@ model PostTag {
 }
 
 model Reply {
-    id              String      @id @default(uuid())
-    content         String
-    userId          String
-    postId          String
-    filteredContent String?
-    user            User        @relation(fields: [userId], references: [id])
-    post            Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
-    replies         Reply[]     @relation("ReplyToReply")
-    parentId        String?     @map("replyId")
-    parent          Reply?      @relation("ReplyToReply", fields: [parentId], references: [id])
-    images          Image[]
-    likes           Like[]
-    reports         Report[]
-    tags            ReplyTag[] // Relasi ke tabel ReplyTag
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @default(now()) @updatedAt
-    replyView       ReplyView[]
+    id                      String      @id @default(uuid())
+    content                 String
+    userId                  String
+    postId                  String
+    filteredContent         String?
+    durationFilteredContent Int?
+    user                    User        @relation(fields: [userId], references: [id])
+    post                    Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+    replies                 Reply[]     @relation("ReplyToReply")
+    parentId                String?     @map("replyId")
+    parent                  Reply?      @relation("ReplyToReply", fields: [parentId], references: [id])
+    images                  Image[]
+    likes                   Like[]
+    reports                 Report[]
+    tags                    ReplyTag[] // Relasi ke tabel ReplyTag
+    createdAt               DateTime    @default(now())
+    updatedAt               DateTime    @default(now()) @updatedAt
+    replyView               ReplyView[]
 }
 
 model ReplyView {

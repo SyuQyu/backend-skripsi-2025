@@ -66,6 +66,7 @@ Table Post {
   userId String [not null]
   content String [not null]
   filteredContent String
+  durationFilteredContent Int
   user User [not null]
   tags PostTag [not null]
   replies Reply [not null]
@@ -109,6 +110,7 @@ Table Reply {
   userId String [not null]
   postId String [not null]
   filteredContent String
+  durationFilteredContent Int
   user User [not null]
   post Post [not null]
   replies Reply [not null]

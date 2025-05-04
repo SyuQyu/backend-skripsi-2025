@@ -21,13 +21,14 @@ export async function createPostHandler(req: Request, res: Response): Promise<vo
         );
 
         // Filterisasi konten dengan Boyer-Moore
-        const { filteredText } = await boyerMooreFilter(content);
+        const { filteredText, durationMs } = await boyerMooreFilter(content);
 
         // Buat post baru
         const newPost = await postQueries.createPost({
             ...postData,
             content,
             filteredContent: filteredText,
+            durationFilteredContent: durationMs
         });
 
         // Hubungkan post dengan tags
@@ -59,7 +60,7 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
         }
 
         // Gunakan fungsi Boyer-Moore untuk memfilter kata
-        const { filteredText, filteredWords } = await boyerMooreFilter(text);
+        const { filteredText, filteredWords, durationMs } = await boyerMooreFilter(text);
         const bannedWords = filteredWords.map(word => word.original);
         const replacementWords = filteredWords.map(word => word.replacement);
 
@@ -69,7 +70,8 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
             filteredWords: filteredWords, // [{ original: "anjing", replacement: "hewan", position: 5, rawWord: "4njing" }]
             filtered: filteredText,
             bannedWords: bannedWords,         // ["goblok", "anjing"]
-            replacementWords: replacementWords // ["bodoh", "hewan"]
+            replacementWords: replacementWords, // ["bodoh", "hewan"]
+            durationMs: `${durationMs}ms` // Waktu eksekusi dalam milidetik (jika perlu)
         });
     } catch (error: any) {
         res.status(500).json({
