@@ -21,6 +21,51 @@ type User = {
 const ACCESS_TOKEN_SECRET: any = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET: any = process.env.REFRESH_TOKEN_SECRET;
 
+
+// Cek username sudah digunakan atau belum
+export async function checkUsernameHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { username } = req.body as { username?: string };
+        if (!username) {
+            res.status(400).json({ status: "error", message: "Username is required" });
+            return;
+        }
+
+        const exists = await userQueries.isUsernameExists(username);
+        res.status(200).json({
+            status: "success",
+            username,
+            available: !exists,
+            message: exists ? "Username sudah dipakai" : "Username tersedia"
+        });
+    } catch (error: any) {
+        res.status(500).json({ status: "error", message: error.message });
+    }
+}
+
+// Cek email sudah digunakan atau belum
+export async function checkEmailHandler(req: Request, res: Response): Promise<void> {
+    try {
+        const { email } = req.body as { email?: string };
+        console.log(email);
+        if (!email) {
+            res.status(400).json({ status: "error", message: "Email is required" });
+            return;
+        }
+
+        const exists = await userQueries.isEmailExists(email);
+        res.status(200).json({
+            status: "success",
+            email,
+            available: !exists,
+            message: exists ? "Email sudah dipakai" : "Email tersedia"
+        });
+    } catch (error: any) {
+        res.status(500).json({ status: "error", message: error.message });
+    }
+}
+
+
 function generateAccessToken(userId: string, roleName?: string): string {
     return jwt.sign({ userId, roleName }, ACCESS_TOKEN_SECRET, { expiresIn: "1d" });
 }

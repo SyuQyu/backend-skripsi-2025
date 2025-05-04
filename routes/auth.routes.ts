@@ -19,6 +19,8 @@ router.post('/refresh-token', authController.refreshTokenHandler);
 router.get('/data-logged-in', authMiddleware(["User", "Admin", "SuperAdmin"]), authController.dataLoggedInHandler);
 //  check password
 router.post('/check-password', authMiddleware(["User", "Admin", "SuperAdmin"]), authController.checkPasswordHandler);
+router.post('/check-username', authController.checkUsernameHandler);
+router.post('/check-email', authController.checkEmailHandler);
 // Reset password
 router.post('/reset-password', authMiddleware(["User", "Admin", "SuperAdmin"]), authController.resetPasswordHandler);
 

@@ -120,5 +120,16 @@ async function getUserByRefreshToken(refreshToken: string) {
     });
 }
 
+// Cek username atau email sudah ada
+async function isUsernameExists(username: string) {
+    const user = await prisma.user.findUnique({ where: { username } });
+    return !!user;
+}
+async function isEmailExists(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    return !!user;
+}
 
-export { growthUsers, getTotalUsers, getUsers, resetPassword, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };
+
+
+export { isEmailExists, isUsernameExists, growthUsers, getTotalUsers, getUsers, resetPassword, createUser, getUserById, updateUser, deleteUser, getUserByUsername, updateRefreshToken, getUserByRefreshToken, updateFirstLogin };
