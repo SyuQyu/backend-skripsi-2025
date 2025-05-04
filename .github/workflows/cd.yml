@@ -1,0 +1,40 @@
+name: Node.js CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js v20
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build Next.js app
+        run: yarn run build
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /var/www/frontend-skrispi-2025 || exit 1
+            git pull origin main
+            yarn install --frozen-lockfile
+            pm2 stop 0 || true
+            npx prisma migrate dev
+            yarn run build
+            pm2 restart 0
