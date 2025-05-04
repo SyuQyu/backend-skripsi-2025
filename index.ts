@@ -13,15 +13,13 @@ const port = API_PORT || 8080;
 
 app.use(cors());
 
-// PASANG dulu router yang mengandung multer route
-app.use(router);
 
-// PASANG body parser JSON dan urlencoded setelahnya
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser(process.env.JWT_SECRET!));
 
+app.use(router);
 // app.use(express.static(__dirname + '/' + process.env.PUBLIC_FOLDER as string));
 
 app.get("/", (req, res) => {
