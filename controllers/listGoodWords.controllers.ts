@@ -1,6 +1,9 @@
 import { listGoodWordsQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
+import { uploadSingleFile } from "../middlewares/upload";
+import path from "path";
+import * as XLSX from 'xlsx';
 
 export async function createListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -119,31 +122,73 @@ export async function getGoodWordbyWordHandler(req: Request, res: Response): Pro
     }
 }
 
-export async function bulkInsertListGoodWordsHandler(req: Request, res: Response): Promise<void> {
-    try {
-        const wordMap = req.body; // Expected format: { "badWord1": "goodWord1", ... }
 
-        if (!wordMap || typeof wordMap !== 'object') {
-            throw new CustomError(400, 'Invalid format. Expected an object with badWord: goodWord pairs.');
+
+
+export const bulkInsertFromFileHandler = [
+    uploadSingleFile,
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            if (!req.file) {
+                throw new CustomError(400, 'No file uploaded');
+            }
+
+            const ext = path.extname(req.file.originalname).toLowerCase();
+
+            let data: Array<{ [key: string]: string }>;
+
+            if (ext === '.csv') {
+                // Jika CSV, langsung parsing CSV text dari buffer (as utf-8 string)
+                const csvString = req.file.buffer.toString('utf-8');
+
+                // Parse CSV ke JSON, misal pakai XLSX.utils
+                const workbook = XLSX.read(csvString, { type: 'string' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            } else if (ext === '.xlsx' || ext === '.xls') {
+                // Parse file Excel
+                const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            } else {
+                throw new CustomError(400, `Unsupported file type: ${ext}`);
+            }
+
+            if (!data || data.length === 0) {
+                throw new CustomError(400, 'Empty or invalid file data');
+            }
+
+            const wordPairs = data
+                .map(row => {
+                    const badWord = row['kata kotor']?.toString().trim();
+                    const goodWord = row['kata baik']?.toString().trim();
+                    if (!badWord || !goodWord) return null;
+                    return { word: badWord, substitute: goodWord };
+                })
+                .filter(item => item !== null) as { word: string; substitute: string }[];
+
+            if (wordPairs.length === 0) {
+                throw new CustomError(400, 'No valid word pairs found in file');
+            }
+
+            const result = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
+
+            res.status(201).json({
+                status: 'success',
+                message: `${result.count} List Words inserted successfully from file`,
+                insertedWords: result.insertedWords
+            });
+
+        } catch (error: any) {
+            const statusCode = error instanceof CustomError ? error.code : 500;
+            res.status(statusCode).json({
+                status: 'error',
+                message: error.message
+            });
         }
-
-        const wordPairs = Object.entries(wordMap).map(([badWord, substitute]) => ({
-            word: badWord,
-            substitute: substitute as string
-        }));
-
-        const result = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
-
-        res.status(201).json({
-            status: "success",
-            message: `${result.count} ListGoodWords inserted successfully`,
-            insertedWords: result.insertedWords
-        });
-    } catch (error: any) {
-        const statusCode = error instanceof CustomError ? error.code : 500;
-        res.status(statusCode).json({
-            status: "error",
-            message: error.message
-        });
     }
-}
+];
