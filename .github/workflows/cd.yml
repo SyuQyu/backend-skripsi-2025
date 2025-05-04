@@ -28,10 +28,6 @@ jobs:
       - name: Install dependencies
         run: yarn
 
-      - name: Build Next.js app
-        run: npx prisma migrate dev --name init --create-only
-        run: yarn run build
-
       - name: Deploy using ssh
         uses: appleboy/ssh-action@master
         with:
