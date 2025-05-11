@@ -32,7 +32,7 @@ export async function getUserPhotoHandler(req: Request, res: Response): Promise<
             return;
         }
 
-        const imagePath = path.join(__dirname, "../uploads/profile-bg", fileName);
+        const imagePath = path.join(process.cwd(), "../uploads/profile-bg", fileName);
 
         // Cek apakah filenya ada secara fisik
         if (!fs.existsSync(imagePath)) {
@@ -154,7 +154,7 @@ export async function updateUserHandler(req: Request, res: Response): Promise<vo
             // Delete old profile picture if a new one is uploaded
             if (files.profilePicture) {
                 if (existingUser.profilePicture) {
-                    const oldProfilePicPath = path.join(__dirname, '../uploads/profile-bg/', existingUser.profilePicture);
+                    const oldProfilePicPath = path.join(process.cwd(), '../uploads/profile-bg/', existingUser.profilePicture);
                     fs.unlink(oldProfilePicPath, (err) => {
                         if (err) console.error(`Failed to delete old profile picture: ${err.message}`);
                     });
@@ -165,7 +165,7 @@ export async function updateUserHandler(req: Request, res: Response): Promise<vo
             // Delete old background picture if a new one is uploaded
             if (files.backgroundPicture) {
                 if (existingUser.backgroundPicture) {
-                    const oldBackgroundPicPath = path.join(__dirname, '../uploads/profile-bg/', existingUser.backgroundPicture);
+                    const oldBackgroundPicPath = path.join(process.cwd(), '../uploads/profile-bg/', existingUser.backgroundPicture);
                     fs.unlink(oldBackgroundPicPath, (err) => {
                         if (err) console.error(`Failed to delete old background picture: ${err.message}`);
                     });
@@ -202,7 +202,7 @@ export async function deleteUserHandler(req: Request, res: Response): Promise<vo
 
         // Delete profile picture if it exists
         if (user.profilePicture) {
-            const profilePicPath = path.join(__dirname, '../uploads/profile-bg/', user.profilePicture);
+            const profilePicPath = path.join(process.cwd(), '../uploads/profile-bg/', user.profilePicture);
             fs.unlink(profilePicPath, (err) => {
                 if (err) console.error(`Failed to delete profile picture: ${err.message}`);
             });
@@ -210,7 +210,7 @@ export async function deleteUserHandler(req: Request, res: Response): Promise<vo
 
         // Delete background picture if it exists
         if (user.backgroundPicture) {
-            const backgroundPicPath = path.join(__dirname, '../uploads/profile-bg/', user.backgroundPicture);
+            const backgroundPicPath = path.join(process.cwd(), '../uploads/profile-bg/', user.backgroundPicture);
             fs.unlink(backgroundPicPath, (err) => {
                 if (err) console.error(`Failed to delete background picture: ${err.message}`);
             });
