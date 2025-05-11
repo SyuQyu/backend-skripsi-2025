@@ -1,6 +1,7 @@
 import { performance } from 'perf_hooks'
 import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
+import os from 'os'; // Add this line to import the os module
 
 function normalizeWord(word: string): string {
     const charMap: Record<string, string> = {
@@ -16,6 +17,24 @@ function normalizeWord(word: string): string {
         .replace(/[013457]/g, (ch) => charMap[ch] || ch)
         .replace(/[^a-z]/g, '')
 }
+
+function getMemoryUsage(): { free: number; total: number } {
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    return {
+        free: freeMemory,
+        total: totalMemory
+    };
+}
+
+function getCpuUsage(): { user: number; system: number } {
+    const cpuInfo = process.cpuUsage();
+    return {
+        user: cpuInfo.user / 1000, // Convert microseconds to milliseconds
+        system: cpuInfo.system / 1000 // Convert microseconds to milliseconds
+    };
+}
+
 
 function getNormalizationMapping(text: string) {
     const charMap: Record<string, string> = {
@@ -117,8 +136,14 @@ export async function boyerMooreFilter(
     replacementWords: string[]
     filteredText: string
     durationMs: number
+    memoryUsage: any
+    cpuUsage: any
 }> {
     const startTime = performance.now()
+
+    // Check Initial Memory and CPU Usage
+    const initialMemory = getMemoryUsage();
+    const initialCpu = getCpuUsage();
 
     const badWords = await getBadWordsFromDB()
     const { normalized: normalizedText, mapping: normToOrig } = getNormalizationMapping(text)
@@ -201,6 +226,10 @@ export async function boyerMooreFilter(
     const durationMs = Math.round(endTime - startTime)
     const durationSeconds = (durationMs / 1000).toFixed(2)
 
+    // Check final CPU and Memory usage
+    const finalMemory = getMemoryUsage();
+    const finalCpu = getCpuUsage();
+
     return {
         status: 'success',
         original: text,
@@ -215,5 +244,21 @@ export async function boyerMooreFilter(
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
         durationMs: durationMs,
+        memoryUsage: {
+            initialFree: initialMemory.free,
+            initialTotal: initialMemory.total,
+            finalFree: finalMemory.free,
+            finalTotal: finalMemory.total,
+            differenceFree: finalMemory.free - initialMemory.free,
+            differenceTotal: finalMemory.total - initialMemory.total,
+        },
+        cpuUsage: {
+            initialUser: initialCpu.user,
+            initialSystem: initialCpu.system,
+            finalUser: finalCpu.user,
+            finalSystem: finalCpu.system,
+            differenceUser: finalCpu.user - initialCpu.user,
+            differenceSystem: finalCpu.system - initialCpu.system,
+        }
     }
 }

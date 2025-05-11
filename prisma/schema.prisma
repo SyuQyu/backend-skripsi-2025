@@ -38,28 +38,29 @@ model Role {
 }
 
 model User {
-    id             String      @id @default(cuid())
-    roleId         String
-    role           Role        @relation(fields: [roleId], references: [id])
-    fullName       String?
-    username       String      @unique
-    email          String      @unique
-    password       String
-    phone          String?
-    nim            String?
-    faculty        String?
-    gender         String?
-    firstLogin     Boolean     @default(false)
-    profilePicture String?
-    refreshToken   String? // Menyimpan refresh token untuk autentikasi
-    posts          Post[]
-    replies        Reply[]
-    reports        Report[]
-    likes          Like[]
-    createdAt      DateTime    @default(now())
-    updatedAt      DateTime    @default(now()) @updatedAt
-    postView       PostView[]
-    replyView      ReplyView[]
+    id                String      @id @default(cuid())
+    roleId            String
+    role              Role        @relation(fields: [roleId], references: [id])
+    fullName          String?
+    username          String      @unique
+    email             String      @unique
+    password          String
+    phone             String?
+    nim               String?
+    faculty           String?
+    gender            String?
+    firstLogin        Boolean     @default(false)
+    profilePicture    String? // URL or path to the user's profile picture
+    backgroundPicture String? // URL or path to the user's background picture
+    refreshToken      String? // Menyimpan refresh token untuk autentikasi
+    posts             Post[]
+    replies           Reply[]
+    reports           Report[]
+    likes             Like[]
+    createdAt         DateTime    @default(now())
+    updatedAt         DateTime    @default(now()) @updatedAt
+    postView          PostView[]
+    replyView         ReplyView[]
 }
 
 model Tag {

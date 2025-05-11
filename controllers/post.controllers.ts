@@ -21,8 +21,9 @@ export async function createPostHandler(req: Request, res: Response): Promise<vo
         );
 
         // Filterisasi konten dengan Boyer-Moore
-        const { filteredText, durationMs } = await boyerMooreFilter(content);
-
+        const { filteredText, durationMs, cpuUsage, memoryUsage } = await boyerMooreFilter(content);
+        console.log("CPU Usage:", cpuUsage);
+        console.log("Memory Usage:", memoryUsage);
         // Buat post baru
         const newPost = await postQueries.createPost({
             ...postData,
@@ -67,11 +68,11 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
         res.status(200).json({
             status: "success",
             original: text,
-            filteredWords: filteredWords, // [{ original: "anjing", replacement: "hewan", position: 5, rawWord: "4njing" }]
+            filteredWords: filteredWords,
             filtered: filteredText,
-            bannedWords: bannedWords,         // ["goblok", "anjing"]
-            replacementWords: replacementWords, // ["bodoh", "hewan"]
-            durationMs: `${durationMs}ms` // Waktu eksekusi dalam milidetik (jika perlu)
+            bannedWords: bannedWords,
+            replacementWords: replacementWords,
+            durationMs: `${durationMs}ms`
         });
     } catch (error: any) {
         res.status(500).json({

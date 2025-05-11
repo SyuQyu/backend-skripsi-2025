@@ -3,10 +3,13 @@ import bcrypt from "bcrypt";
 import { Request, Response, NextFunction } from "express";
 import { userQueries, roleQueries } from "../queries";
 import { CustomError } from "../handler/customErrorHandler";
+import { getUserPhotoUrl } from "../utils/getUserPhotoUrl";
 
 type JwtPayload = { userId: string };
 
 type User = {
+    backgroundPicture: any;
+    profilePicture: any;
     id: string;
     username: string;
     email: string;
@@ -185,11 +188,15 @@ export async function dataLoggedInHandler(req: Request, res: Response): Promise<
 
         const user: User | null = await userQueries.getUserById(res.locals.user.id);
         if (!user) throw new CustomError(404, "User not found");
-
+        const userWithPhotoLinks = {
+            ...user,
+            profilePictureUrl: user.profilePicture ? getUserPhotoUrl(user.id, 'profile') : null,
+            backgroundPictureUrl: user.backgroundPicture ? getUserPhotoUrl(user.id, 'background') : null,
+        };
         res.status(200).json({
             status: "success",
             message: "User data retrieved successfully",
-            user,
+            user: userWithPhotoLinks,
         });
     } catch (error: any) {
         res.status(error instanceof CustomError ? error.code : 500).json({

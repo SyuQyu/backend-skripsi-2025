@@ -41,6 +41,7 @@ Table User {
   gender String
   firstLogin Boolean [not null, default: false]
   profilePicture String
+  backgroundPicture String
   refreshToken String
   posts Post [not null]
   replies Reply [not null]

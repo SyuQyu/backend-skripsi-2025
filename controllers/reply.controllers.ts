@@ -21,7 +21,7 @@ export async function createReplyHandler(req: Request, res: Response): Promise<v
         );
 
         // Filter content using Boyer-Moore algorithm
-        const { filteredText, durationMs } = await boyerMooreFilter(content);
+        const { filteredText, durationMs, cpuUsage, memoryUsage } = await boyerMooreFilter(content);
 
         // Create new reply
         const newReply = await replyQueries.createReply({
