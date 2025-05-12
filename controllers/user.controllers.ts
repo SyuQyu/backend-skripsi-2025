@@ -32,8 +32,7 @@ export async function getUserPhotoHandler(req: Request, res: Response): Promise<
             return;
         }
 
-        const imagePath = path.join(process.cwd(), "../uploads/profile-bg", fileName);
-
+        const imagePath = path.join(process.cwd(), "/uploads/profile-bg", fileName);
         // Cek apakah filenya ada secara fisik
         if (!fs.existsSync(imagePath)) {
             res.status(404).json({ status: "error", message: "File gambar tidak ditemukan" });
