@@ -1,11 +1,8 @@
 import { performance } from 'perf_hooks'
 import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
+// import os from 'os';
 
-/**
- * Mengubah kata menjadi bentuk normal (lowercase, ganti karakter mirip, hapus non-huruf).
- * Contoh: "b4d" -> "bad"
- */
 function normalizeWord(word: string): string {
     const charMap: Record<string, string> = {
         '0': 'o',
@@ -21,10 +18,23 @@ function normalizeWord(word: string): string {
         .replace(/[^a-z]/g, '')
 }
 
-/**
- * Menghasilkan versi normalisasi dari teks beserta mapping posisi karakter aslinya.
- * Berguna untuk menghubungkan hasil pencarian ke posisi asli di teks.
- */
+// function getMemoryUsage(): { free: number; total: number } {
+//     const totalMemory = os.totalmem();
+//     const freeMemory = os.freemem();
+//     return {
+//         free: freeMemory,
+//         total: totalMemory
+//     };
+// }
+
+// function getCpuUsage(): { user: number; system: number } {
+//     const cpuInfo = process.cpuUsage();
+//     return {
+//         user: cpuInfo.user / 1000, // Convert microseconds to milliseconds
+//         system: cpuInfo.system / 1000 // Convert microseconds to milliseconds
+//     };
+// }
+
 function getNormalizationMapping(text: string) {
     const charMap: Record<string, string> = {
         '0': 'o',
@@ -46,10 +56,6 @@ function getNormalizationMapping(text: string) {
     return { normalized, mapping }
 }
 
-/**
- * Mengambil daftar kata kasar dari database, lalu menormalisasi dan mengambil kata pengganti.
- * Output: { normalized_badword: replacement }
- */
 async function getBadWordsFromDB(): Promise<Record<string, string>> {
     const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
     const badWords: Record<string, string> = {}
@@ -62,11 +68,6 @@ async function getBadWordsFromDB(): Promise<Record<string, string>> {
 }
 
 const badCharCache = new Map<string, Record<string, number>>()
-
-/**
- * Membuat tabel karakter buruk untuk algoritma Boyer-Moore.
- * Mempercepat pencarian substring dengan mengatur seberapa jauh pencarian bisa melompat.
- */
 function buildBadCharacterTable(pattern: string): Record<string, number> {
     if (badCharCache.has(pattern)) return badCharCache.get(pattern)!
     const table: Record<string, number> = {}
@@ -77,10 +78,6 @@ function buildBadCharacterTable(pattern: string): Record<string, number> {
     return table
 }
 
-/**
- * Melakukan pencarian substring menggunakan algoritma Boyer-Moore pada teks yang sudah dinormalisasi.
- * Mengembalikan posisi dan kata asli yang cocok.
- */
 function boyerMooreSearch(
     haystack: string,
     origText: string,
@@ -111,20 +108,12 @@ function boyerMooreSearch(
     return results
 }
 
-/**
- * Membuat regular expression fuzzy dari pattern.
- * Setiap karakter di pattern boleh dipisahkan karakter lain (misal: "bad" -> /b.*a.*d/i).
- */
 function buildFuzzyRegex(pattern: string): RegExp {
     const escaped = pattern.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
     const fuzzyPattern = escaped.split('').join('.*')
     return new RegExp(fuzzyPattern, 'i')
 }
 
-/**
- * Memperluas posisi start dan end agar mencakup seluruh kata (bukan hanya substring).
- * Berguna untuk mengganti seluruh kata di teks asli.
- */
 function expandToWord(
     text: string,
     startIdx: number,
@@ -139,15 +128,6 @@ function expandToWord(
 // FUNGSI UTAMA DENGAN DETECTION ACCURACY
 // ---------------------
 
-/**
- * Fungsi utama untuk filter kata kasar pada teks.
- * - Menggunakan algoritma Boyer-Moore dan fuzzy regex.
- * - Mengganti kata kasar dengan kata pengganti.
- * - Menghitung akurasi deteksi jika diberikan ground-truth.
- * @param text Teks yang akan difilter
- * @param trueBadWords (opsional) Daftar kata kasar ground-truth untuk evaluasi akurasi
- * @returns Hasil filter, daftar kata yang difilter, statistik, dan akurasi deteksi (jika ada)
- */
 export async function boyerMooreFilter(
     text: string,
     trueBadWords?: string[] // Tambahkan parameter ini
@@ -168,9 +148,11 @@ export async function boyerMooreFilter(
 }> {
     const startTime = performance.now()
 
-    // Ambil daftar kata kasar dari DB
+    // Check Initial Memory and CPU Usage
+    // const initialMemory = getMemoryUsage();
+    // const initialCpu = getCpuUsage();
+
     const badWords = await getBadWordsFromDB()
-    // Normalisasi teks dan mapping ke posisi asli
     const { normalized: normalizedText, mapping: normToOrig } = getNormalizationMapping(text)
 
     type Match = {
@@ -183,7 +165,6 @@ export async function boyerMooreFilter(
 
     const matches: Match[] = []
 
-    // Tokenisasi kata pada teks asli
     const wordRegex = /\b\w+\b/g
     const tokens: { token: string; start: number; end: number }[] = []
     let m
@@ -191,11 +172,10 @@ export async function boyerMooreFilter(
         tokens.push({ token: m[0], start: m.index, end: m.index + m[0].length })
     }
 
-    // Step 1 - Pencarian dengan Boyer-Moore pada teks normalisasi
+    // Step 1 - Boyer-Moore search
     for (const pattern in badWords) {
         const replacement = badWords[pattern]
         const bmMatches = boyerMooreSearch(normalizedText, text, normToOrig, pattern)
-        console.log('bmMatches', bmMatches, replacement, pattern)
         for (const match of bmMatches) {
             matches.push({
                 original: pattern,
@@ -207,7 +187,7 @@ export async function boyerMooreFilter(
         }
     }
 
-    // Step 2 - Pencarian fuzzy regex pada setiap token (kata)
+    // Step 2 - Fuzzy regex search on tokens
     const checkedFuzzyKeys = new Set<string>()
     for (const pattern in badWords) {
         const replacement = badWords[pattern]
@@ -228,7 +208,7 @@ export async function boyerMooreFilter(
         }
     }
 
-    // Menghapus overlap match, hanya ambil yang pertama
+    // Remove overlap matches, keep first
     matches.sort((a, b) => a.start - b.start)
     const filtered: Match[] = []
     let lastEnd = -1
@@ -239,7 +219,7 @@ export async function boyerMooreFilter(
         }
     }
 
-    // Membuat teks hasil filter dengan penggantian kata
+    // Build filtered text with replacements
     let result = ''
     let idx = 0
     for (const f of filtered) {
@@ -251,6 +231,10 @@ export async function boyerMooreFilter(
 
     const endTime = performance.now()
     const durationMs = Math.round(endTime - startTime)
+
+    // Check final CPU and Memory usage
+    // const finalMemory = getMemoryUsage();
+    // const finalCpu = getCpuUsage();
 
     // ----- DETECTION ACCURACY -----
     let detectionAccuracy: number | undefined = undefined
@@ -283,6 +267,22 @@ export async function boyerMooreFilter(
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
         durationMs: durationMs,
+        // memoryUsage: {
+        //     initialFree: initialMemory.free,
+        //     initialTotal: initialMemory.total,
+        //     finalFree: finalMemory.free,
+        //     finalTotal: finalMemory.total,
+        //     differenceFree: finalMemory.free - initialMemory.free,
+        //     differenceTotal: finalMemory.total - initialMemory.total,
+        // },
+        // cpuUsage: {
+        //     initialUser: initialCpu.user,
+        //     initialSystem: initialCpu.system,
+        //     finalUser: finalCpu.user,
+        //     finalSystem: finalCpu.system,
+        //     differenceUser: finalCpu.user - initialCpu.user,
+        //     differenceSystem: finalCpu.system - initialCpu.system,
+        // },
         detectionAccuracy: detectionAccuracy,
         detectedTrueArr,
         detectedTrueCount

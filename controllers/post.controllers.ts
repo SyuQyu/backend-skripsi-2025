@@ -21,9 +21,7 @@ export async function createPostHandler(req: Request, res: Response): Promise<vo
         );
 
         // Filterisasi konten dengan Boyer-Moore
-        const { filteredText, durationMs, cpuUsage, memoryUsage } = await boyerMooreFilter(content);
-        console.log("CPU Usage:", cpuUsage);
-        console.log("Memory Usage:", memoryUsage);
+        const { filteredText, durationMs } = await boyerMooreFilter(content);
         // Buat post baru
         const newPost = await postQueries.createPost({
             ...postData,
@@ -81,6 +79,85 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
         });
     }
 }
+
+// export async function checkWordHandler(req: Request, res: Response): Promise<void> {
+//     try {
+//         const { text } = req.body;
+//         if (!text) {
+//             res.status(400).json({
+//                 status: "error",
+//                 message: "Text is required"
+//             });
+//             return;
+//         }
+
+//         // Data dummy ground-truth boleh diubah/diparameterkan sesuai kebutuhan kasus
+//         const groundTruth = ["bangsat", "babi", "anjing"];
+
+//         // Run deteksi dari berbagai mode
+//         const bm = await boyerMooreFilter(text, groundTruth);
+//         const fuzzy = await boyerMooreWithFuzzy(text, groundTruth);
+//         const normal = await boyerMooreWithNormalization(text, groundTruth);
+//         const only = await boyerMooreOnly(text, groundTruth);
+
+//         // Kumpulan banned/replacement untuk comparasi mudah (pakai dari bm)
+//         const bannedWords = bm.filteredWords.map(word => word.original);
+//         const replacementWords = bm.filteredWords.map(word => word.replacement);
+
+//         res.status(200).json({
+//             status: "success",
+//             message: "Filtered text with various strategies",
+//             summary: {
+//                 input: text,
+//                 bannedWords,
+//                 replacementWords
+//             },
+//             results: {
+//                 boyerMooreFull: {
+//                     filteredText: bm.filteredText,
+//                     countFilteredWords: bm.filteredWords.length,
+//                     filteredWords: bm.filteredWords,
+//                     detectedTrueArr: bm.detectedTrueArr,
+//                     detectedTrueCount: bm.detectedTrueCount,
+//                     detectionAccuracy: bm.detectionAccuracy,
+//                     durationMs: bm.durationMs
+//                 },
+//                 fuzzyOnly: {
+//                     filteredText: fuzzy.filteredText,
+//                     countFilteredWords: fuzzy.filteredWords.length,
+//                     filteredWords: fuzzy.filteredWords,
+//                     detectedTrueArr: fuzzy.detectedTrueArr,
+//                     detectedTrueCount: fuzzy.detectedTrueCount,
+//                     detectionAccuracy: fuzzy.detectionAccuracy,
+//                     durationMs: fuzzy.durationMs
+//                 },
+//                 normalizationOnly: {
+//                     filteredText: normal.filteredText,
+//                     countFilteredWords: normal.filteredWords.length,
+//                     filteredWords: normal.filteredWords,
+//                     detectedTrueArr: normal.detectedTrueArr,
+//                     detectedTrueCount: normal.detectedTrueCount,
+//                     detectionAccuracy: normal.detectionAccuracy,
+//                     durationMs: normal.durationMs
+//                 },
+//                 boyerMooreDirectOnly: {
+//                     filteredText: only.filteredText,
+//                     countFilteredWords: only.filteredWords.length,
+//                     filteredWords: only.filteredWords,
+//                     detectedTrueArr: only.detectedTrueArr,
+//                     detectedTrueCount: only.detectedTrueCount,
+//                     detectionAccuracy: only.detectionAccuracy,
+//                     durationMs: only.durationMs
+//                 }
+//             }
+//         });
+//     } catch (error: any) {
+//         res.status(500).json({
+//             status: "error",
+//             message: error.message
+//         });
+//     }
+// }
 
 export async function getPostByIdHandler(req: Request, res: Response): Promise<void> {
     try {

@@ -122,9 +122,6 @@ export async function getGoodWordbyWordHandler(req: Request, res: Response): Pro
     }
 }
 
-
-
-
 export const bulkInsertFromFileHandler = [
     uploadSingleFile,
     async (req: Request, res: Response): Promise<void> => {
@@ -140,20 +137,17 @@ export const bulkInsertFromFileHandler = [
             if (ext === '.csv') {
                 // Jika CSV, langsung parsing CSV text dari buffer (as utf-8 string)
                 const csvString = req.file.buffer.toString('utf-8');
-
                 // Parse CSV ke JSON, misal pakai XLSX.utils
                 const workbook = XLSX.read(csvString, { type: 'string' });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
             } else if (ext === '.xlsx' || ext === '.xls') {
                 // Parse file Excel
                 const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
             } else {
                 throw new CustomError(400, `Unsupported file type: ${ext}`);
             }
@@ -162,14 +156,38 @@ export const bulkInsertFromFileHandler = [
                 throw new CustomError(400, 'Empty or invalid file data');
             }
 
+            // Penyesuaian agar bisa menerima format tabel seperti gambar
             const wordPairs = data
-                .map(row => {
-                    const badWord = row['kata kotor']?.toString().trim();
-                    const goodWord = row['kata baik']?.toString().trim();
-                    if (!badWord || !goodWord) return null;
-                    return { word: badWord, substitute: goodWord };
+                .flatMap(row => {
+                    // Ambil kolom utama (case-insensitive)
+                    const badWordsRaw = row['Kata Kasar'] || row['kata kasar'] || row['kata kotor'] || row['Kata Kotor'] || '';
+                    const slangRaw = row['Variasi Ejaan/Slang'] || row['variasi ejaan/slang'] || row['slang'] || '';
+                    const goodWordRaw = row['Padanan Kata Halus'] || row['padanan kata halus'] || row['kata baik'] || row['Kata Baik'] || '';
+
+                    // Gabungkan kata kasar utama dan semua slang (masuk sebagai kata kasar)
+                    // Pisahkan dengan koma, trim, dan filter kosong
+                    const badWordsArr = [
+                        ...(badWordsRaw ? badWordsRaw.split(',') : []),
+                        ...(slangRaw ? slangRaw.split(',') : [])
+                    ]
+                        .map(w => w.trim())
+                        .filter(Boolean);
+
+                    // Padanan kata halus bisa lebih dari satu, ambil semua
+                    const substitutesArr = goodWordRaw
+                        ? goodWordRaw.split(',').map(w => w.trim()).filter(Boolean)
+                        : [];
+
+                    // Untuk setiap kata kasar/slang, buat entry untuk setiap padanan kata halus
+                    const pairs: { word: string; substitute: string }[] = [];
+                    for (const word of badWordsArr) {
+                        for (const substitute of substitutesArr) {
+                            pairs.push({ word, substitute });
+                        }
+                    }
+                    return pairs;
                 })
-                .filter(item => item !== null) as { word: string; substitute: string }[];
+                .filter(item => item.word && item.substitute);
 
             if (wordPairs.length === 0) {
                 throw new CustomError(400, 'No valid word pairs found in file');
@@ -192,3 +210,72 @@ export const bulkInsertFromFileHandler = [
         }
     }
 ];
+
+
+// export const bulkInsertFromFileHandler = [
+//     uploadSingleFile,
+//     async (req: Request, res: Response): Promise<void> => {
+//         try {
+//             if (!req.file) {
+//                 throw new CustomError(400, 'No file uploaded');
+//             }
+
+//             const ext = path.extname(req.file.originalname).toLowerCase();
+
+//             let data: Array<{ [key: string]: string }>;
+
+//             if (ext === '.csv') {
+//                 // Jika CSV, langsung parsing CSV text dari buffer (as utf-8 string)
+//                 const csvString = req.file.buffer.toString('utf-8');
+
+//                 // Parse CSV ke JSON, misal pakai XLSX.utils
+//                 const workbook = XLSX.read(csvString, { type: 'string' });
+//                 const sheetName = workbook.SheetNames[0];
+//                 const sheet = workbook.Sheets[sheetName];
+//                 data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+//             } else if (ext === '.xlsx' || ext === '.xls') {
+//                 // Parse file Excel
+//                 const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+//                 const sheetName = workbook.SheetNames[0];
+//                 const sheet = workbook.Sheets[sheetName];
+//                 data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+//             } else {
+//                 throw new CustomError(400, `Unsupported file type: ${ext}`);
+//             }
+
+//             if (!data || data.length === 0) {
+//                 throw new CustomError(400, 'Empty or invalid file data');
+//             }
+
+//             const wordPairs = data
+//                 .map(row => {
+//                     const badWord = row['kata kotor']?.toString().trim();
+//                     const goodWord = row['kata baik']?.toString().trim();
+//                     if (!badWord || !goodWord) return null;
+//                     return { word: badWord, substitute: goodWord };
+//                 })
+//                 .filter(item => item !== null) as { word: string; substitute: string }[];
+
+//             if (wordPairs.length === 0) {
+//                 throw new CustomError(400, 'No valid word pairs found in file');
+//             }
+
+//             const result = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
+
+//             res.status(201).json({
+//                 status: 'success',
+//                 message: `${result.count} List Words inserted successfully from file`,
+//                 insertedWords: result.insertedWords
+//             });
+
+//         } catch (error: any) {
+//             const statusCode = error instanceof CustomError ? error.code : 500;
+//             res.status(statusCode).json({
+//                 status: 'error',
+//                 message: error.message
+//             });
+//         }
+//     }
+// ];
