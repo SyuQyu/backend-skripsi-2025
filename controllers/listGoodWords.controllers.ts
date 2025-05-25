@@ -132,6 +132,12 @@ export const bulkInsertFromFileHandler = [
 
             const ext = path.extname(req.file.originalname).toLowerCase();
 
+            // Batasi ukuran file maksimum (contoh: 5MB)
+            const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+            if (req.file.size > MAX_FILE_SIZE) {
+                throw new CustomError(400, `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+            }
+
             let data: Array<{ [key: string]: string }>;
 
             if (ext === '.csv') {
@@ -156,49 +162,82 @@ export const bulkInsertFromFileHandler = [
                 throw new CustomError(400, 'Empty or invalid file data');
             }
 
+            // Batasi jumlah baris maksimum
+            const MAX_ROWS = 5000;
+            if (data.length > MAX_ROWS) {
+                throw new CustomError(400, `Too many rows. Maximum is ${MAX_ROWS} rows`);
+            }
+
             // Penyesuaian agar bisa menerima format tabel seperti gambar
-            const wordPairs = data
-                .flatMap(row => {
-                    // Ambil kolom utama (case-insensitive)
-                    const badWordsRaw = row['Kata Kasar'] || row['kata kasar'] || row['kata kotor'] || row['Kata Kotor'] || '';
-                    const slangRaw = row['Variasi Ejaan/Slang'] || row['variasi ejaan/slang'] || row['slang'] || '';
-                    const goodWordRaw = row['Padanan Kata Halus'] || row['padanan kata halus'] || row['kata baik'] || row['Kata Baik'] || '';
+            // Proses secara batch untuk mengurangi memory usage
+            const BATCH_SIZE = 100; // Proses 500 baris sekaligus
+            const results = {
+                count: 0,
+                insertedWords: [] as any[]
+            };
 
-                    // Gabungkan kata kasar utama dan semua slang (masuk sebagai kata kasar)
-                    // Pisahkan dengan koma, trim, dan filter kosong
-                    const badWordsArr = [
-                        ...(badWordsRaw ? badWordsRaw.split(',') : []),
-                        ...(slangRaw ? slangRaw.split(',') : [])
-                    ]
-                        .map(w => w.trim())
-                        .filter(Boolean);
+            // Memproses data dalam batch
+            for (let i = 0; i < data.length; i += BATCH_SIZE) {
+                const batchData = data.slice(i, i + BATCH_SIZE);
 
-                    // Padanan kata halus bisa lebih dari satu, ambil semua
-                    const substitutesArr = goodWordRaw
-                        ? goodWordRaw.split(',').map(w => w.trim()).filter(Boolean)
-                        : [];
+                const wordPairs = batchData
+                    .flatMap(row => {
+                        // Ambil kolom utama (case-insensitive)
+                        const badWordsRaw = row['Kata Kasar'] || row['kata kasar'] || row['kata kotor'] || row['Kata Kotor'] || '';
+                        const slangRaw = row['Variasi Ejaan/Slang'] || row['variasi ejaan/slang'] || row['slang'] || '';
+                        const goodWordRaw = row['Padanan Kata Halus'] || row['padanan kata halus'] || row['kata baik'] || row['Kata Baik'] || '';
 
-                    // Untuk setiap kata kasar/slang, buat entry untuk setiap padanan kata halus
-                    const pairs: { word: string; substitute: string }[] = [];
-                    for (const word of badWordsArr) {
-                        for (const substitute of substitutesArr) {
-                            pairs.push({ word, substitute });
+                        // Gabungkan kata kasar utama dan semua slang (masuk sebagai kata kasar)
+                        // Pisahkan dengan koma, trim, dan filter kosong
+                        const badWordsArr = [
+                            ...(badWordsRaw ? badWordsRaw.split(',') : []),
+                            ...(slangRaw ? slangRaw.split(',') : [])
+                        ]
+                            .map(w => w.trim())
+                            .filter(Boolean);
+
+                        // Padanan kata halus bisa lebih dari satu, ambil semua
+                        const substitutesArr = goodWordRaw
+                            ? goodWordRaw.split(',').map(w => w.trim()).filter(Boolean)
+                            : [];
+
+                        // Untuk setiap kata kasar/slang, buat entry untuk setiap padanan kata halus
+                        // Batasi jumlah kombinasi untuk mencegah explosive growth
+                        const pairs: { word: string; substitute: string }[] = [];
+                        const MAX_COMBINATIONS = 20; // Batasi jumlah kombinasi per baris
+
+                        for (const word of badWordsArr) {
+                            for (const substitute of substitutesArr) {
+                                if (pairs.length < MAX_COMBINATIONS) {
+                                    pairs.push({ word, substitute });
+                                } else {
+                                    break;
+                                }
+                            }
                         }
-                    }
-                    return pairs;
-                })
-                .filter(item => item.word && item.substitute);
+                        return pairs;
+                    })
+                    .filter(item => item.word && item.substitute);
 
-            if (wordPairs.length === 0) {
+                if (wordPairs.length > 0) {
+                    // Masukkan batch ke database
+                    const batchResult = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
+                    results.count += batchResult.count;
+                    results.insertedWords = [...results.insertedWords, ...batchResult.insertedWords];
+                }
+            }
+
+            if (results.count === 0) {
                 throw new CustomError(400, 'No valid word pairs found in file');
             }
 
-            const result = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
-
             res.status(201).json({
                 status: 'success',
-                message: `${result.count} List Words inserted successfully from file`,
-                insertedWords: result.insertedWords
+                message: `${results.count} List Words inserted successfully from file`,
+                // Batasi jumlah kata yang dikembalikan ke client
+                insertedWords: results.insertedWords.length > 100
+                    ? results.insertedWords.slice(0, 100)
+                    : results.insertedWords
             });
 
         } catch (error: any) {

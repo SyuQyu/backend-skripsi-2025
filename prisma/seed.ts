@@ -49,6 +49,18 @@ async function main() {
         skipDuplicates: true
     });
 
+    await prisma.commonWord.createMany({
+        data: [
+            { word: 'kasian' },
+            { word: 'sia' },
+            { word: 'ti' },
+            { word: 'menye' },
+            { word: 'item' },
+            { word: 'hati' }
+        ],
+        skipDuplicates: true
+    })
+
     // Seed bad words and replacements
     const badWordsMap: any = {
         "goblok": "bodoh",

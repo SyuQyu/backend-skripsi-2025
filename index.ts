@@ -11,7 +11,13 @@ const app = express();
 const { API_PORT } = process.env;
 const port = API_PORT || 8080;
 
-app.use(cors());
+// Konfigurasi CORS dengan opsi yang lebih spesifik
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000', // Tentukan origin yang diizinkan
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // Izinkan semua metode HTTP yang dibutuhkan
+    allowedHeaders: ['Content-Type', 'Authorization'], // Izinkan header tertentu
+    credentials: true // Izinkan credentials (cookies, auth headers)
+}));
 
 
 app.use(express.json());

@@ -53,6 +53,13 @@ Table User {
   replyView ReplyView [not null]
 }
 
+Table CommonWord {
+  id Int [pk, increment]
+  word String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
 Table Tag {
   id String [pk]
   tag String [unique, not null]

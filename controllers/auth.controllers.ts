@@ -69,11 +69,11 @@ export async function checkEmailHandler(req: Request, res: Response): Promise<vo
 }
 
 
-function generateAccessToken(userId: string, roleName?: string): string {
+export function generateAccessToken(userId: string, roleName?: string): string {
     return jwt.sign({ userId, roleName }, ACCESS_TOKEN_SECRET, { expiresIn: "1d" });
 }
 
-function generateRefreshToken(userId: string, roleName?: string): string {
+export function generateRefreshToken(userId: string, roleName?: string): string {
     return jwt.sign({ userId, roleName }, REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 }
 

@@ -12,6 +12,9 @@ async function createUser(userData: any) {
 async function getUserById(userId: string) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
+        include: {
+            role: true
+        },
     });
     return user;
 }

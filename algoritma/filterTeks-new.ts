@@ -1,5 +1,6 @@
 import { performance } from 'perf_hooks'
 import { PrismaClient } from '@prisma/client'
+import { getCommonWords } from '../queries/commonWords.queries'
 const prisma = new PrismaClient()
 
 /**
@@ -55,10 +56,50 @@ async function getBadWordsFromDB(): Promise<Record<string, string>> {
     const badWords: Record<string, string> = {}
     for (const item of badWordsList) {
         const normalized = normalizeWord(item.word)
+        // Hanya tambahkan kata dengan panjang minimal tertentu untuk menghindari false positive
+        if (normalized.length < 2) continue
         const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word
         badWords[normalized] = replacement
     }
     return badWords
+}
+
+/**
+ * Mengambil daftar kata umum yang sering terdeteksi sebagai false positive dari database.
+ * Kata-kata ini akan diperlakukan khusus dalam algoritma deteksi.
+ */
+async function getCommonWordsSet(): Promise<Set<string>> {
+    try {
+        // Ambil data dari database
+        const commonWordsList = await getCommonWords();
+
+        // Konversi ke set untuk pencarian yang lebih cepat
+        const wordSet = new Set<string>();
+
+        for (const item of commonWordsList) {
+            const normalized = normalizeWord(item.word);
+            if (normalized.length > 0) {
+                wordSet.add(normalized);
+            }
+        }
+
+        // Tambahkan kata-kata umum default jika database kosong
+        if (wordSet.size === 0) {
+            return new Set([
+                'kasian', 'sia', 'ti', 'menye', 'item', 'bodo', 'hati',
+                'nakal', 'makan', 'tidak', 'pasang', 'kasih'
+            ]);
+        }
+
+        return wordSet;
+    } catch (error) {
+        console.error('Error fetching common words:', error);
+        // Fallback ke daftar default jika terjadi error
+        return new Set([
+            'kasian', 'sia', 'ti', 'menye', 'item', 'bodo', 'hati',
+            'nakal', 'makan', 'tidak', 'pasang', 'kasih'
+        ]);
+    }
 }
 
 const badCharCache = new Map<string, Record<string, number>>()
@@ -85,7 +126,8 @@ function boyerMooreSearch(
     haystack: string,
     origText: string,
     origMapping: number[],
-    pattern: string
+    pattern: string,
+    commonWordsSet: Set<string>
 ): Array<{ start: number; end: number; pattern: string; rawWord: string }> {
     const results: Array<{ start: number; end: number; pattern: string; rawWord: string }> = []
     const badCharTable = buildBadCharacterTable(pattern)
@@ -100,6 +142,14 @@ function boyerMooreSearch(
             const origStart = origMapping[i]
             const origEnd = origMapping[i + pattern.length - 1] + 1
             const { start, end, rawWord } = expandToWord(origText, origStart, origEnd)
+
+            // Cek apakah kata ini merupakan bagian dari kata yang lebih besar
+            // Jika ya, dan kata itu ada di daftar kata umum, lewati
+            if (commonWordsSet.has(pattern) && isPartOfLargerWord(origText, start, end)) {
+                i += pattern.length;
+                continue;
+            }
+
             results.push({ start, end, pattern, rawWord })
             i += pattern.length
         } else {
@@ -112,13 +162,26 @@ function boyerMooreSearch(
 }
 
 /**
+ * Memeriksa apakah sebuah kata merupakan bagian dari kata yang lebih besar
+ * dengan melihat konteks sebelum dan sesudahnya
+ */
+function isPartOfLargerWord(text: string, start: number, end: number): boolean {
+    // Cek apakah ada karakter alfanumerik langsung sebelum atau sesudah kata
+    // yang menunjukkan itu bagian dari kata yang lebih besar
+    const prevChar = start > 0 ? text[start - 1] : '';
+    const nextChar = end < text.length ? text[end] : '';
+
+    return /[a-zA-Z0-9]/.test(prevChar) || /[a-zA-Z0-9]/.test(nextChar);
+}
+
+/**
  * Membuat regular expression fuzzy dari pattern.
  * Setiap karakter di pattern boleh dipisahkan karakter lain (misal: "bad" -> /b.*a.*d/i).
  */
 function buildFuzzyRegex(pattern: string): RegExp {
     const escaped = pattern.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
     const fuzzyPattern = escaped.split('').join('.*')
-    return new RegExp(fuzzyPattern, 'i')
+    return new RegExp(`\\b${fuzzyPattern}\\b`, 'i') // Tambahkan word boundary
 }
 
 /**
@@ -133,6 +196,24 @@ function expandToWord(
     while (startIdx > 0 && /[a-zA-Z0-9]/.test(text[startIdx - 1])) startIdx--
     while (endIdx < text.length && /[a-zA-Z0-9]/.test(text[endIdx])) endIdx++
     return { start: startIdx, end: endIdx, rawWord: text.slice(startIdx, endIdx) }
+}
+
+/**
+ * Verifikasi apakah kata yang ditemukan benar-benar kata kasar atau false positive
+ */
+function verifyMatch(token: string, pattern: string, commonWordsSet: Set<string>): boolean {
+    // Jika pattern ada di daftar kata umum dan tidak persis sama dengan token, 
+    // anggap sebagai false positive
+    if (commonWordsSet.has(pattern) && normalizeWord(token) !== pattern) {
+        return false;
+    }
+
+    // Tambahan: jika pattern terlalu pendek, harus sama persis dengan token
+    if (pattern.length <= 2 && normalizeWord(token) !== pattern) {
+        return false;
+    }
+
+    return true;
 }
 
 // ---------------------
@@ -160,8 +241,6 @@ export async function boyerMooreFilter(
     replacementWords: string[]
     filteredText: string
     durationMs: number
-    // memoryUsage: any
-    // cpuUsage: any
     detectionAccuracy?: number
     detectedTrueArr?: string[]
     detectedTrueCount?: number
@@ -170,6 +249,8 @@ export async function boyerMooreFilter(
 
     // Ambil daftar kata kasar dari DB
     const badWords = await getBadWordsFromDB()
+    // Ambil daftar kata umum dari DB
+    const commonWordsSet = await getCommonWordsSet()
     // Normalisasi teks dan mapping ke posisi asli
     const { normalized: normalizedText, mapping: normToOrig } = getNormalizationMapping(text)
 
@@ -193,10 +274,16 @@ export async function boyerMooreFilter(
 
     // Step 1 - Pencarian dengan Boyer-Moore pada teks normalisasi
     for (const pattern in badWords) {
+        // Skip kata yang terlalu pendek atau umum - cegah false positive
+        if (pattern.length < 2) continue;
+
         const replacement = badWords[pattern]
-        const bmMatches = boyerMooreSearch(normalizedText, text, normToOrig, pattern)
-        console.log('bmMatches', bmMatches, replacement, pattern)
+        const bmMatches = boyerMooreSearch(normalizedText, text, normToOrig, pattern, commonWordsSet)
+
         for (const match of bmMatches) {
+            // Verifikasi tambahan untuk mencegah false positive
+            if (!verifyMatch(match.rawWord, pattern, commonWordsSet)) continue;
+
             matches.push({
                 original: pattern,
                 replacement,
@@ -210,19 +297,31 @@ export async function boyerMooreFilter(
     // Step 2 - Pencarian fuzzy regex pada setiap token (kata)
     const checkedFuzzyKeys = new Set<string>()
     for (const pattern in badWords) {
-        const replacement = badWords[pattern]
-        if (pattern.length < 3) continue
+        // Fuzzy search hanya untuk kata yang lebih panjang
+        if (pattern.length < 4) continue;
+        // Skip kata-kata umum dalam fuzzy search karena rawan false positive
+        if (commonWordsSet.has(pattern)) continue;
 
+        const replacement = badWords[pattern]
         const fuzzyRx = buildFuzzyRegex(pattern)
 
         for (const { token, start, end } of tokens) {
-            if (matches.some((m) => m.start <= start && m.end >= end)) continue
+            // Skip jika token sudah tercakup dalam match sebelumnya
+            if (matches.some((m) => m.start <= start && m.end >= end)) continue;
+
             const key = `${pattern}@${start}`
-            if (checkedFuzzyKeys.has(key)) continue
+            if (checkedFuzzyKeys.has(key)) continue;
             checkedFuzzyKeys.add(key)
+
             const normalizedToken = normalizeWord(token)
-            if (normalizedToken.length < pattern.length) continue
+            // Skip jika token terlalu pendek
+            if (normalizedToken.length < pattern.length) continue;
+
+            // Gunakan regex yang sudah ditambahkan word boundary
             if (fuzzyRx.test(normalizedToken)) {
+                // Tambahan verifikasi untuk mengurangi false positive
+                if (!verifyMatch(token, pattern, commonWordsSet)) continue;
+
                 matches.push({ original: pattern, replacement, start, end, rawWord: token })
             }
         }

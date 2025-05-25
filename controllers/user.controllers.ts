@@ -6,6 +6,7 @@ import { uploadProfileBg } from "../middlewares/upload";
 import path from "path";
 import fs from 'fs';
 import { getUserPhotoUrl } from "../utils/getUserPhotoUrl";
+import { generateAccessToken, generateRefreshToken } from "./auth.controllers";
 
 export async function getUserPhotoHandler(req: Request, res: Response): Promise<void> {
     const { userId } = req.params;
@@ -127,6 +128,71 @@ export async function getUserByIdHandler(req: Request, res: Response): Promise<v
     }
 }
 
+// export async function updateUserHandler(req: Request, res: Response): Promise<void> {
+//     uploadProfileBg(req, res, async (err) => {
+//         if (err) {
+//             return res.status(400).json({ status: "error", message: err.message });
+//         }
+
+//         try {
+//             const updatedUserData = { ...req.body };
+
+//             // Fetch the existing user details
+//             const existingUser = await userQueries.getUserById(req.params.userId);
+//             if (!existingUser) {
+//                 throw new CustomError(404, 'User not found');
+//             }
+
+//             // If there's a new password, hash it
+//             if (updatedUserData.password) {
+//                 updatedUserData.password = await bcrypt.hash(updatedUserData.password, 10);
+//             }
+
+//             // Type assertion for req.files
+//             const files = req.files as { profilePicture?: Express.Multer.File[]; backgroundPicture?: Express.Multer.File[] };
+
+//             // Delete old profile picture if a new one is uploaded
+//             if (files.profilePicture) {
+//                 if (existingUser.profilePicture) {
+//                     const oldProfilePicPath = path.join(process.cwd(), '../uploads/profile-bg/', existingUser.profilePicture);
+//                     fs.unlink(oldProfilePicPath, (err) => {
+//                         if (err) console.error(`Failed to delete old profile picture: ${err.message}`);
+//                     });
+//                 }
+//                 updatedUserData.profilePicture = files.profilePicture[0].filename;
+//             }
+
+//             // Delete old background picture if a new one is uploaded
+//             if (files.backgroundPicture) {
+//                 if (existingUser.backgroundPicture) {
+//                     const oldBackgroundPicPath = path.join(process.cwd(), '../uploads/profile-bg/', existingUser.backgroundPicture);
+//                     fs.unlink(oldBackgroundPicPath, (err) => {
+//                         if (err) console.error(`Failed to delete old background picture: ${err.message}`);
+//                     });
+//                 }
+//                 updatedUserData.backgroundPicture = files.backgroundPicture[0].filename;
+//             }
+
+//             const updatedUser = await userQueries.updateUser(req.params.userId, updatedUserData);
+//             if (!updatedUser) {
+//                 throw new CustomError(404, 'User not found');
+//             }
+
+//             res.status(200).json({
+//                 status: "success",
+//                 message: 'User updated successfully',
+//                 user: updatedUser
+//             });
+//         } catch (error: any) {
+//             const statusCode = error instanceof CustomError ? error.code : 500;
+//             res.status(statusCode).json({
+//                 status: "error",
+//                 message: error.message
+//             });
+//         }
+//     });
+// }
+
 export async function updateUserHandler(req: Request, res: Response): Promise<void> {
     uploadProfileBg(req, res, async (err) => {
         if (err) {
@@ -177,10 +243,27 @@ export async function updateUserHandler(req: Request, res: Response): Promise<vo
                 throw new CustomError(404, 'User not found');
             }
 
+            // Dapatkan peran pengguna setelah pembaruan untuk dimasukkan ke dalam token
+            const userWithRole = await userQueries.getUserById(updatedUser.id);
+            const roleName = userWithRole?.role?.name;
+
+            // Buat token baru dengan data yang sudah diperbarui
+            const accessToken = generateAccessToken(updatedUser.id, roleName);
+            const refreshToken = generateRefreshToken(updatedUser.id, roleName);
+
+            // Update refresh token di database
+            await userQueries.updateRefreshToken(updatedUser.id, refreshToken);
+
             res.status(200).json({
                 status: "success",
                 message: 'User updated successfully',
-                user: updatedUser
+                user: updatedUser,
+                accessToken,
+                refreshToken,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                userId: updatedUser.id,
+                role: roleName
             });
         } catch (error: any) {
             const statusCode = error instanceof CustomError ? error.code : 500;
