@@ -1,8 +1,6 @@
 import { performance } from 'perf_hooks'
 import { PrismaClient } from '@prisma/client'
 import { getCommonWords } from '../queries/commonWords.queries'
-import fetch from 'node-fetch' // pastikan sudah install: npm install node-fetch
-
 const prisma = new PrismaClient()
 
 /**
@@ -242,13 +240,10 @@ export async function boyerMooreFilter(
     bannedWords: string[]
     replacementWords: string[]
     filteredText: string
-    filteredBeforeAI: string
-    filteredAI: string
     durationMs: number
     detectionAccuracy?: number
     detectedTrueArr?: string[]
     detectedTrueCount?: number
-    paraphrased?: boolean
 }> {
     const startTime = performance.now()
 
@@ -353,53 +348,6 @@ export async function boyerMooreFilter(
     }
     result += text.slice(idx)
 
-    // === Parafrase AI: gunakan T5 Indonesia pada hasil filter ===
-    let paraphrased = false
-    let paraphrasedResult = result
-    if (filtered.length > 0) {
-        try {
-            // Ambil kalimat yang mengandung kata kasar
-            type SentenceSpan = { start: number; end: number }
-            const sentenceSpans: SentenceSpan[] = []
-            for (const f of filtered) {
-                const { start: sentStart, end: sentEnd } = extractSentence(result, f.start, f.end)
-                sentenceSpans.push({ start: sentStart, end: sentEnd })
-            }
-            // Merge overlapping spans
-            sentenceSpans.sort((a, b) => a.start - b.start)
-            const mergedSpans: SentenceSpan[] = []
-            for (const span of sentenceSpans) {
-                if (mergedSpans.length === 0 || span.start > mergedSpans[mergedSpans.length - 1].end) {
-                    mergedSpans.push({ ...span })
-                } else {
-                    mergedSpans[mergedSpans.length - 1].end = Math.max(
-                        mergedSpans[mergedSpans.length - 1].end,
-                        span.end
-                    )
-                }
-            }
-            // Parafrase tiap kalimat dengan Wikidepia/IndoT5-base-paraphrase
-            const paraphrasedSentences = await Promise.all(
-                mergedSpans.map(s => paraphraseWithPython(result.slice(s.start, s.end)))
-            )
-            // Replace kalimat asli dengan hasil parafrase
-            let resultText = ''
-            let cursor = 0
-            for (let i = 0; i < mergedSpans.length; i++) {
-                const span = mergedSpans[i]
-                resultText += result.slice(cursor, span.start)
-                resultText += paraphrasedSentences[i]
-                cursor = span.end
-            }
-            resultText += result.slice(cursor)
-            paraphrasedResult = resultText
-            paraphrased = true
-        } catch (error) {
-            console.error('Error during paraphrasing:', error)
-            paraphrased = false
-        }
-    }
-
     const endTime = performance.now()
     const durationMs = Math.round(endTime - startTime)
 
@@ -429,46 +377,13 @@ export async function boyerMooreFilter(
             position: f.start,
             rawWord: f.rawWord,
         })),
-        filtered: paraphrasedResult,           // hasil akhir (setelah AI)
-        filteredText: paraphrasedResult,       // hasil akhir (setelah AI)
-        filteredBeforeAI: result,              // hasil filter sebelum parafrase AI
-        filteredAI: paraphrasedResult,         // hasil setelah parafrase AI (sama dengan filtered/filteredText)
+        filtered: result,
+        filteredText: result,
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
         durationMs: durationMs,
         detectionAccuracy: detectionAccuracy,
         detectedTrueArr,
-        detectedTrueCount,
-        paraphrased
+        detectedTrueCount
     }
-}
-// Parafrase teks menggunakan Wikidepia/IndoT5-base-paraphrase
-// Fungsi parafrase menggunakan endpoint Flask API di localhost
-async function paraphraseWithPython(text: string): Promise<string> {
-    console.log('Paraphrasing text:', text);
-    try {
-        // Batasi panjang teks sesuai batasan Flask API
-        if (text.length > 500) return text;
-        const response = await fetch('http://localhost:8000/paraphrase', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-        const data = await response.json();
-        if (data.result) return data.result;
-        return text;
-    } catch (err) {
-        console.error('Python paraphrase error:', err);
-        return text;
-    }
-}
-
-// Ambil kalimat penuh yang mengandung kata kasar
-function extractSentence(text: string, startIdx: number, endIdx: number): { sentence: string, start: number, end: number } {
-    let sentStart = text.lastIndexOf('.', startIdx - 1)
-    sentStart = sentStart === -1 ? 0 : sentStart + 1
-    let sentEnd = text.indexOf('.', endIdx)
-    sentEnd = sentEnd === -1 ? text.length : sentEnd + 1
-    const sentence = text.slice(sentStart, sentEnd).trim()
-    return { sentence, start: sentStart, end: sentEnd }
 }

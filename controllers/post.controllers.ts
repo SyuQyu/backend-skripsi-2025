@@ -59,7 +59,7 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
         }
 
         // Gunakan fungsi Boyer-Moore untuk memfilter kata
-        const { filteredText, filteredWords, durationMs } = await boyerMooreFilter(text);
+        const { filteredText, filteredWords, durationMs, filteredBeforeAI, filteredAI } = await boyerMooreFilter(text);
         const bannedWords = filteredWords.map(word => word.original);
         const replacementWords = filteredWords.map(word => word.replacement);
 
@@ -68,6 +68,8 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
             original: text,
             filteredWords: filteredWords,
             filtered: filteredText,
+            filteredBeforeAI: filteredBeforeAI,
+            filteredAfterAI: filteredAI,
             bannedWords: bannedWords,
             replacementWords: replacementWords,
             durationMs: `${durationMs}ms`
