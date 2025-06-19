@@ -449,12 +449,16 @@ async function paraphraseWithPython(text: string): Promise<string> {
     try {
         // Batasi panjang teks sesuai batasan Flask API
         if (text.length > 500) return text;
-        const response = await fetch('http://localhost:8000/paraphrase', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
+        const response = await fetch(
+            `${process.env.BACKEND_AI_URL}/paraphrase`,
+            // `http://localhost:8000/paraphrase`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
         const data = await response.json();
+        console.log('Paraphrase response:', data);
         if (data.result) return data.result;
         return text;
     } catch (err) {
