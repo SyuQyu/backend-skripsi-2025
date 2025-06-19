@@ -1,10 +1,6 @@
 import { performance } from 'perf_hooks'
 import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
-import os from 'os';
-
-function getMemoryUsage() { /* ...Sama seperti kode aslinya... */ }
-function getCpuUsage() { /* ...Sama seperti kode aslinya... */ }
 
 async function getBadWordsFromDB() {
     const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
@@ -16,10 +12,30 @@ async function getBadWordsFromDB() {
     return badWords
 }
 
+/**
+ * Membuat regular expression fuzzy dari pattern.
+ * Setiap karakter di pattern boleh dipisahkan karakter lain (misal: "bad" -> /b.*a.*d/i).
+ */
 function buildFuzzyRegex(pattern: string): RegExp {
-    const escaped = pattern.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
-    const fuzzyPattern = escaped.split('').join('.*')
-    return new RegExp(fuzzyPattern, 'i')
+    try {
+        // Escape each character individually before joining with .*
+        const fuzzyPattern = pattern
+            .split('')
+            .map(char => {
+                // Escape special regex characters
+                if (/[-/\\^$*+?.()|[\]{}]/.test(char)) {
+                    return '\\' + char;
+                }
+                return char;
+            })
+            .join('.*');
+
+        return new RegExp(`\\b${fuzzyPattern}\\b`, 'i');
+    } catch (error) {
+        console.error(`Invalid regex pattern for: ${pattern}`, error);
+        // Fallback to exact match if regex creation fails
+        return new RegExp(`\\b${pattern}\\b`, 'i');
+    }
 }
 
 export async function boyerMooreWithFuzzy(
@@ -27,8 +43,6 @@ export async function boyerMooreWithFuzzy(
     trueBadWords?: string[]
 ) {
     const startTime = performance.now()
-    const initialMemory = getMemoryUsage();
-    const initialCpu = getCpuUsage();
 
     const badWords = await getBadWordsFromDB()
     const matches: any[] = []
@@ -92,8 +106,6 @@ export async function boyerMooreWithFuzzy(
 
     const endTime = performance.now()
     const durationMs = Math.round(endTime - startTime)
-    const finalMemory = getMemoryUsage();
-    const finalCpu = getCpuUsage();
 
     return {
         status: 'success',
@@ -109,8 +121,6 @@ export async function boyerMooreWithFuzzy(
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
         durationMs: durationMs,
-        memoryUsage: { initialMemory, finalMemory },
-        cpuUsage: { initialCpu, finalCpu },
         trueBadWords,
         detectedTrueArr,         // Daftar trueBadWords yang berhasil terdeteksi
         detectedTrueCount,       // Jumlah trueBadWords yang berhasil terdeteksi

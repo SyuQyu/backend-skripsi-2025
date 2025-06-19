@@ -353,7 +353,7 @@ export async function boyerMooreFilter(
     }
     result += text.slice(idx)
 
-    // === Parafrase AI: gunakan T5 Indonesia pada hasil filter ===
+    // === Parafrase AI ===
     let paraphrased = false
     let paraphrasedResult = result
     if (filtered.length > 0) {
@@ -442,7 +442,7 @@ export async function boyerMooreFilter(
         paraphrased
     }
 }
-// Parafrase teks menggunakan Wikidepia/IndoT5-base-paraphrase
+// Parafrase teks
 // Fungsi parafrase menggunakan endpoint Flask API di localhost
 async function paraphraseWithPython(text: string): Promise<string> {
     console.log('Paraphrasing text:', text);
