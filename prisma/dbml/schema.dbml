@@ -35,10 +35,6 @@ Table User {
   username String [unique, not null]
   email String [unique, not null]
   password String [not null]
-  phone String
-  nim String
-  faculty String
-  gender String
   firstLogin Boolean [not null, default: false]
   profilePicture String
   backgroundPicture String

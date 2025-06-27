@@ -8,8 +8,8 @@ generator dbml {
 
 datasource db {
     provider = "postgresql"
-    // url      = env("DATABASE_PROD_URL")
-    url      = env("DATABASE_URL")
+    url      = env("DATABASE_PROD_URL")
+    // url      = env("DATABASE_URL")
 }
 
 model ListGoodWords {
@@ -45,10 +45,10 @@ model User {
     username          String      @unique
     email             String      @unique
     password          String
-    phone             String?
-    nim               String?
-    faculty           String?
-    gender            String?
+    // phone             String?
+    // nim               String?
+    // faculty           String?
+    // gender            String?
     firstLogin        Boolean     @default(false)
     profilePicture    String? // URL or path to the user's profile picture
     backgroundPicture String? // URL or path to the user's background picture

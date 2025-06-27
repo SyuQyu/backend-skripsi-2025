@@ -61,7 +61,13 @@ export async function unifiedTextFilter(
         // Method 3: Boyer-Moore with fuzzy
         allResults.withFuzzy = await runBoyerMooreFuzzy(text, badWords, commonWordsSet, trueBadWords, disableAccuracy);
 
-        // Method 4: Full implementation 
+        // Method 4: Fuzzy regex with normalization (no Boyer-Moore)
+        allResults.fuzzyRegexWithNorm = await runFuzzyRegexWithNormalization(text, badWords, commonWordsSet, trueBadWords, disableAccuracy);
+
+        // Method 5: Fuzzy regex only (no normalization, no common words)
+        allResults.fuzzyRegexOnly = await runFuzzyRegexPure(text, badWords, trueBadWords, disableAccuracy);
+
+        // Method 6: Full implementation 
         allResults.full = await runFullImplementation(text, badWords, commonWordsSet, trueBadWords, disableAccuracy, true);
 
         // Return comparison of all methods
@@ -71,6 +77,8 @@ export async function unifiedTextFilter(
                 onlyBM: allResults.onlyBM,
                 withNormalization: allResults.withNormalization,
                 withFuzzy: allResults.withFuzzy,
+                fuzzyRegexWithNorm: allResults.fuzzyRegexWithNorm,
+                fuzzyRegexOnly: allResults.fuzzyRegexOnly,
                 full: allResults.full
             },
             comparison: generateComparison(allResults, text, trueBadWords)
@@ -583,6 +591,225 @@ async function runFullImplementation(
     };
 }
 
+/**
+ * Fuzzy Regex + Normalisasi (tanpa Boyer-Moore)
+ */
+async function runFuzzyRegexWithNormalization(
+    text: string,
+    badWords: Record<string, string>,
+    commonWordsSet: Set<string>,
+    trueBadWords: string[] = [],
+    disableAccuracy: boolean = false
+) {
+    const startTime = performance.now();
+
+    type Match = {
+        original: string;
+        replacement: string;
+        start: number;
+        end: number;
+        rawWord: string;
+    };
+
+    const matches: Match[] = [];
+    const wordRegex = /\b\w+\b/g;
+    const tokens: { token: string; start: number; end: number }[] = [];
+    let m;
+
+    while ((m = wordRegex.exec(text)) !== null) {
+        tokens.push({
+            token: m[0],
+            start: m.index,
+            end: m.index + m[0].length
+        });
+    }
+
+    const checkedFuzzyKeys = new Set<string>();
+    for (const pattern in badWords) {
+        if (pattern.length < 4) continue;
+        if (commonWordsSet.has(pattern)) continue;
+        const replacement = badWords[pattern];
+        const fuzzyRx = buildFuzzyRegex(pattern);
+        for (const { token, start, end } of tokens) {
+            if (matches.some((m) => m.start <= start && m.end >= end)) continue;
+            const key = `${pattern}@${start}`;
+            if (checkedFuzzyKeys.has(key)) continue;
+            checkedFuzzyKeys.add(key);
+            const normalizedToken = normalizeWord(token);
+            if (normalizedToken.length < pattern.length) continue;
+            if (fuzzyRx.test(normalizedToken)) {
+                if (!verifyMatch(token, pattern, commonWordsSet)) continue;
+                matches.push({ original: pattern, replacement, start, end, rawWord: token });
+            }
+        }
+    }
+
+    // Hapus overlap match, hanya ambil yang pertama
+    matches.sort((a, b) => a.start - b.start);
+    const filtered: Match[] = [];
+    let lastEnd = -1;
+    for (const m of matches) {
+        if (m.start >= lastEnd) {
+            filtered.push(m);
+            lastEnd = m.end;
+        }
+    }
+
+    // Membuat teks hasil filter dengan penggantian kata
+    let result = '';
+    let idx = 0;
+    for (const f of filtered) {
+        result += text.slice(idx, f.start);
+        result += f.replacement;
+        idx = f.end;
+    }
+    result += text.slice(idx);
+
+    // Hitung akurasi deteksi jika diberikan ground-truth
+    let detectionAccuracy: number | undefined = undefined;
+    let detectedTrueArr: string[] = [];
+    let detectedTrueCount = 0;
+    if (trueBadWords && trueBadWords.length > 0) {
+        const normalizeArr = (arr: string[]) => arr.map(w => normalizeWord(w));
+        const detected = filtered.map(f => f.original);
+        const normalizedDetected = normalizeArr(detected);
+        const normalizedTrue = normalizeArr(trueBadWords);
+        detectedTrueArr = normalizedTrue.filter(word => normalizedDetected.includes(word));
+        detectedTrueCount = detectedTrueArr.length;
+        detectionAccuracy = Number(((detectedTrueCount / normalizedTrue.length) * 100).toFixed(2));
+    }
+
+    const endTime = performance.now();
+    const durationMs = Math.round(endTime - startTime);
+
+    return {
+        method: "Fuzzy Regex + Normalisasi",
+        status: 'success',
+        original: text,
+        filteredWords: filtered.map((f) => ({
+            original: f.original,
+            replacement: f.replacement,
+            position: f.start,
+            rawWord: f.rawWord,
+        })),
+        filtered: result,
+        filteredText: result,
+        bannedWords: filtered.map((f) => f.original),
+        replacementWords: filtered.map((f) => f.replacement),
+        durationMs,
+        detectionAccuracy,
+        detectedTrueArr,
+        detectedTrueCount,
+        totalDetectedCount: filtered.length
+    };
+}
+
+/**
+ * Fuzzy Regex Saja (tanpa normalisasi, tanpa commonWords)
+ */
+async function runFuzzyRegexPure(
+    text: string,
+    badWords: Record<string, string>,
+    trueBadWords: string[] = [],
+    disableAccuracy: boolean = false
+) {
+    const startTime = performance.now();
+
+    type Match = {
+        original: string;
+        replacement: string;
+        start: number;
+        end: number;
+        rawWord: string;
+    };
+
+    const matches: Match[] = [];
+    const wordRegex = /\b\w+\b/g;
+    const tokens: { token: string; start: number; end: number }[] = [];
+    let m;
+
+    while ((m = wordRegex.exec(text)) !== null) {
+        tokens.push({
+            token: m[0],
+            start: m.index,
+            end: m.index + m[0].length
+        });
+    }
+
+    const checkedFuzzyKeys = new Set<string>();
+    for (const pattern in badWords) {
+        if (pattern.length < 4) continue;
+        const replacement = badWords[pattern];
+        const fuzzyRx = buildFuzzyRegex(pattern);
+        for (const { token, start, end } of tokens) {
+            if (matches.some((m) => m.start <= start && m.end >= end)) continue;
+            const key = `${pattern}@${start}`;
+            if (checkedFuzzyKeys.has(key)) continue;
+            checkedFuzzyKeys.add(key);
+            if (token.length < pattern.length) continue;
+            if (fuzzyRx.test(token)) {
+                matches.push({ original: pattern, replacement, start, end, rawWord: token });
+            }
+        }
+    }
+
+    // Hapus overlap match, hanya ambil yang pertama
+    matches.sort((a, b) => a.start - b.start);
+    const filtered: Match[] = [];
+    let lastEnd = -1;
+    for (const m of matches) {
+        if (m.start >= lastEnd) {
+            filtered.push(m);
+            lastEnd = m.end;
+        }
+    }
+
+    // Membuat teks hasil filter dengan penggantian kata
+    let result = '';
+    let idx = 0;
+    for (const f of filtered) {
+        result += text.slice(idx, f.start);
+        result += f.replacement;
+        idx = f.end;
+    }
+    result += text.slice(idx);
+
+    // Hitung akurasi deteksi jika diberikan ground-truth
+    let detectionAccuracy: number | undefined = undefined;
+    let detectedTrueArr: string[] = [];
+    let detectedTrueCount = 0;
+    if (trueBadWords && trueBadWords.length > 0) {
+        const detected = filtered.map(f => f.original);
+        detectedTrueArr = trueBadWords.filter(word => detected.includes(word));
+        detectedTrueCount = detectedTrueArr.length;
+        detectionAccuracy = Number(((detectedTrueCount / trueBadWords.length) * 100).toFixed(2));
+    }
+
+    const endTime = performance.now();
+    const durationMs = Math.round(endTime - startTime);
+
+    return {
+        method: "Fuzzy Regex Only (Tanpa Normalisasi)",
+        status: 'success',
+        original: text,
+        filteredWords: filtered.map((f) => ({
+            original: f.original,
+            replacement: f.replacement,
+            position: f.start,
+            rawWord: f.rawWord,
+        })),
+        filtered: result,
+        filteredText: result,
+        bannedWords: filtered.map((f) => f.original),
+        replacementWords: filtered.map((f) => f.replacement),
+        durationMs,
+        detectionAccuracy,
+        detectedTrueArr,
+        detectedTrueCount,
+        totalDetectedCount: filtered.length
+    };
+}
+
 // Helper functions for text processing
 
 /**
@@ -1088,15 +1315,19 @@ function calculateMetrics(
 function generateComparison(results: any, text: string, trueBadWords: string[]) {
     return {
         performance: {
-            onlyBM: `${results.onlyBM.durationMs}ms`,
-            withNormalization: `${results.withNormalization.durationMs}ms`,
-            withFuzzy: `${results.withFuzzy.durationMs}ms`,
-            full: `${results.full.durationMs}ms`
+            onlyBM: `${(results.onlyBM.durationMs / 1000).toFixed(3)}s`,
+            withNormalization: `${(results.withNormalization.durationMs / 1000).toFixed(3)}s`,
+            withFuzzy: `${(results.withFuzzy.durationMs / 1000).toFixed(3)}s`,
+            fuzzyRegexWithNorm: `${(results.fuzzyRegexWithNorm.durationMs / 1000).toFixed(3)}s`,
+            fuzzyRegexOnly: `${(results.fuzzyRegexOnly.durationMs / 1000).toFixed(3)}s`,
+            full: `${(results.full.durationMs / 1000).toFixed(3)}s`
         },
         detectionCounts: {
             onlyBM: results.onlyBM.totalDetectedCount,
             withNormalization: results.withNormalization.totalDetectedCount,
             withFuzzy: results.withFuzzy.totalDetectedCount,
+            fuzzyRegexWithNorm: results.fuzzyRegexWithNorm.totalDetectedCount,
+            fuzzyRegexOnly: results.fuzzyRegexOnly.totalDetectedCount,
             full: results.full.totalDetectedCount
         },
         metrics: {
@@ -1118,6 +1349,18 @@ function generateComparison(results: any, text: string, trueBadWords: string[]) 
                 recall: results.withFuzzy.recallScore,
                 f1Score: results.withFuzzy.f1Score
             },
+            fuzzyRegexWithNorm: {
+                accuracy: results.fuzzyRegexWithNorm.detectionAccuracy,
+                precision: results.fuzzyRegexWithNorm.precisionScore,
+                recall: results.fuzzyRegexWithNorm.recallScore,
+                f1Score: results.fuzzyRegexWithNorm.f1Score
+            },
+            fuzzyRegexOnly: {
+                accuracy: results.fuzzyRegexOnly.detectionAccuracy,
+                precision: results.fuzzyRegexOnly.precisionScore,
+                recall: results.fuzzyRegexOnly.recallScore,
+                f1Score: results.fuzzyRegexOnly.f1Score
+            },
             full: {
                 accuracy: results.full.detectionAccuracy,
                 precision: results.full.precisionScore,
@@ -1128,7 +1371,9 @@ function generateComparison(results: any, text: string, trueBadWords: string[]) 
         relativeToFull: {
             onlyBM: calculateDetectionOverlap(results.onlyBM, results.full),
             withNormalization: calculateDetectionOverlap(results.withNormalization, results.full),
-            withFuzzy: calculateDetectionOverlap(results.withFuzzy, results.full)
+            withFuzzy: calculateDetectionOverlap(results.withFuzzy, results.full),
+            fuzzyRegexWithNorm: calculateDetectionOverlap(results.fuzzyRegexWithNorm, results.full),
+            fuzzyRegexOnly: calculateDetectionOverlap(results.fuzzyRegexOnly, results.full),
         }
     };
 }
