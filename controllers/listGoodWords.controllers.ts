@@ -5,10 +5,34 @@ import { uploadSingleFile } from "../middlewares/upload";
 import path from "path";
 import * as XLSX from 'xlsx';
 
+import { createNotification } from "../queries/notification.queries";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+
 export async function createListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
         const listGoodWordsData = req.body;
         const newListGoodWords = await listGoodWordsQueries.createListGoodWord(listGoodWordsData);
+
+        // Kirim notifikasi ke semua superadmin setelah berhasil tambah good word
+        const superAdmins = await prisma.user.findMany({
+            where: {
+                role: {
+                    name: 'SuperAdmin', // Pastikan nama role sesuai di database Anda
+                },
+            },
+        });
+
+        await Promise.all(
+            superAdmins.map((user) =>
+                createNotification({
+                    userId: user.id,
+                    type: 'NEW_GOOD_WORD',
+                    message: `Admin menambahkan kata baik baru: "${newListGoodWords.word}"`,
+                })
+            )
+        );
+
         res.status(201).json({
             status: "success",
             message: 'ListGoodWords created successfully',
@@ -22,6 +46,24 @@ export async function createListGoodWordsHandler(req: Request, res: Response): P
         });
     }
 }
+
+// export async function createListGoodWordsHandler(req: Request, res: Response): Promise<void> {
+//     try {
+//         const listGoodWordsData = req.body;
+//         const newListGoodWords = await listGoodWordsQueries.createListGoodWord(listGoodWordsData);
+//         res.status(201).json({
+//             status: "success",
+//             message: 'ListGoodWords created successfully',
+//             listGoodWords: newListGoodWords
+//         });
+//     } catch (error: any) {
+//         const statusCode = error instanceof CustomError ? error.code : 500;
+//         res.status(statusCode).json({
+//             status: "error",
+//             message: error.message
+//         });
+//     }
+// }
 
 export async function getListGoodWordsByIdHandler(req: Request, res: Response): Promise<void> {
     try {

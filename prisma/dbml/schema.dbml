@@ -47,6 +47,7 @@ Table User {
   updatedAt DateTime [default: `now()`, not null]
   postView PostView [not null]
   replyView ReplyView [not null]
+  Notification Notification [not null]
 }
 
 Table CommonWord {
@@ -192,6 +193,19 @@ Table Report {
   updatedAt DateTime [default: `now()`, not null]
 }
 
+Table Notification {
+  id String [pk]
+  userId String [not null]
+  user User [not null]
+  type String [not null]
+  message String [not null]
+  postId String
+  replyId String
+  url String
+  createdAt DateTime [default: `now()`, not null]
+  isRead Boolean [not null, default: false]
+}
+
 Ref: ListGoodWords.badWordId > ListBadWords.id [delete: Cascade]
 
 Ref: User.roleId > Role.id
@@ -235,3 +249,5 @@ Ref: Report.postId > Post.id [delete: Cascade]
 Ref: Report.replyId > Reply.id [delete: Cascade]
 
 Ref: Report.userId > User.id [delete: Cascade]
+
+Ref: Notification.userId > User.id [delete: Cascade]

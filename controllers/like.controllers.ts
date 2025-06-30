@@ -2,21 +2,62 @@ import { likeQuries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
 
+import { createNotification } from "../queries/notification.queries";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+
 export async function createLikeHandler(req: Request, res: Response): Promise<void> {
     try {
         const likeData = req.body;
         let newLike;
+        let ownerId: string | null = null;
+        let notifMessage = "";
+        let notifType = "NEW_LIKE";
+        let postIdFromReply: string | undefined = undefined;
+        if (likeData.replyId) {
+            const reply = await prisma.reply.findUnique({ where: { id: likeData.replyId } });
+            postIdFromReply = reply?.postId;
+        }
         if (likeData.type === 'post') {
             newLike = await likeQuries.createLike({
                 userId: likeData.userId,
                 postId: likeData.postId,
             });
+            // Cari pemilik post
+            const post = await prisma.post.findUnique({ where: { id: likeData.postId } });
+            if (post && post.userId !== likeData.userId) {
+                ownerId = post.userId;
+                notifMessage = "Postingan Anda mendapat like baru.";
+            }
         } else {
             newLike = await likeQuries.createLike({
                 userId: likeData.userId,
                 replyId: likeData.replyId,
             });
+            // Cari pemilik reply
+            const reply = await prisma.reply.findUnique({ where: { id: likeData.replyId } });
+            if (reply && reply.userId !== likeData.userId) {
+                ownerId = reply.userId;
+                notifMessage = "Reply Anda mendapat like baru.";
+            }
         }
+
+        // Kirim notifikasi jika bukan like ke diri sendiri
+        if (ownerId) {
+            await createNotification({
+                userId: ownerId,
+                type: notifType,
+                message: notifMessage,
+                postId: likeData.postId,
+                replyId: likeData.replyId,
+                url: likeData.postId
+                    ? `/post/${likeData.postId}`
+                    : likeData.replyId
+                        ? `/post/${postIdFromReply}` // Anda bisa ambil postId dari reply jika perlu
+                        : undefined,
+            });
+        }
+
         res.status(201).json({
             status: "success",
             message: 'Like created successfully',
@@ -30,6 +71,35 @@ export async function createLikeHandler(req: Request, res: Response): Promise<vo
         });
     }
 }
+
+// export async function createLikeHandler(req: Request, res: Response): Promise<void> {
+//     try {
+//         const likeData = req.body;
+//         let newLike;
+//         if (likeData.type === 'post') {
+//             newLike = await likeQuries.createLike({
+//                 userId: likeData.userId,
+//                 postId: likeData.postId,
+//             });
+//         } else {
+//             newLike = await likeQuries.createLike({
+//                 userId: likeData.userId,
+//                 replyId: likeData.replyId,
+//             });
+//         }
+//         res.status(201).json({
+//             status: "success",
+//             message: 'Like created successfully',
+//             like: newLike
+//         });
+//     } catch (error: any) {
+//         const statusCode = error instanceof CustomError ? error.code : 500;
+//         res.status(statusCode).json({
+//             status: "error",
+//             message: error.message
+//         });
+//     }
+// }
 
 export async function getLikeByIdHandler(req: Request, res: Response): Promise<void> {
     try {

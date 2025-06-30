@@ -2,6 +2,10 @@ import { replyQueries, tagQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
 import { boyerMooreFilter } from "../algoritma/filterTeks-new";
+import { createNotification } from "../queries/notification.queries";
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+
 
 export async function createReplyHandler(req: Request, res: Response): Promise<void> {
     try {
@@ -34,6 +38,19 @@ export async function createReplyHandler(req: Request, res: Response): Promise<v
         // Associate reply with tags
         await Promise.all(tagRecords.map(tagId => tagQueries.createReplyTag(newReply.id, tagId)));
 
+        // Notifikasi ke pemilik post jika ada reply baru
+        const post = await prisma.post.findUnique({ where: { id: newReply.postId } });
+        if (post && post.userId !== newReply.userId) {
+            await createNotification({
+                userId: post.userId,
+                type: 'NEW_REPLY',
+                message: 'Ada balasan baru pada postingan Anda.',
+                postId: post.id,
+                replyId: newReply.id,
+                url: `/post/${post.id}`,
+            });
+        }
+
         res.status(201).json({
             status: "success",
             message: "Reply created successfully",
@@ -46,6 +63,50 @@ export async function createReplyHandler(req: Request, res: Response): Promise<v
         });
     }
 }
+
+// export async function createReplyHandler(req: Request, res: Response): Promise<void> {
+//     try {
+//         const { content, ...replyData } = req.body;
+//         const tags = content.match(/#[\w]+/g) || [];
+//         const cleanTags = tags.map((tag: string) => tag.substring(1)); // Remove #
+
+//         // Check if the tag exists in the database, if not create a new one
+//         const tagRecords = await Promise.all(
+//             cleanTags.map(async (tagName: string) => {
+//                 let tag = await tagQueries.getTagByName(tagName);
+//                 if (!tag) {
+//                     tag = await tagQueries.createTag({ tag: tagName });
+//                 }
+//                 return tag.id;
+//             })
+//         );
+
+//         // Filter content using Boyer-Moore algorithm
+//         const { filteredText, durationMs } = await boyerMooreFilter(content);
+
+//         // Create new reply
+//         const newReply = await replyQueries.createReply({
+//             ...replyData,
+//             content,
+//             filteredContent: filteredText,
+//             durationFilteredContent: durationMs
+//         });
+
+//         // Associate reply with tags
+//         await Promise.all(tagRecords.map(tagId => tagQueries.createReplyTag(newReply.id, tagId)));
+
+//         res.status(201).json({
+//             status: "success",
+//             message: "Reply created successfully",
+//             reply: newReply,
+//         });
+//     } catch (error: any) {
+//         res.status(error instanceof CustomError ? error.code : 500).json({
+//             status: "error",
+//             message: error.message
+//         });
+//     }
+// }
 
 export async function getRepliesHandler(req: Request, res: Response): Promise<void> {
     try {

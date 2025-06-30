@@ -8,8 +8,9 @@ generator dbml {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_PROD_URL")
+    // url      = env("DATABASE_PROD_URL")
     // url      = env("DATABASE_URL")
+    url      = env("DATABASE_PROD_URL_NEW")
 }
 
 model ListGoodWords {
@@ -38,18 +39,18 @@ model Role {
 }
 
 model User {
-    id                String      @id @default(cuid())
+    id                String         @id @default(cuid())
     roleId            String
-    role              Role        @relation(fields: [roleId], references: [id])
+    role              Role           @relation(fields: [roleId], references: [id])
     fullName          String?
-    username          String      @unique
-    email             String      @unique
+    username          String         @unique
+    email             String         @unique
     password          String
     // phone             String?
     // nim               String?
     // faculty           String?
     // gender            String?
-    firstLogin        Boolean     @default(false)
+    firstLogin        Boolean        @default(false)
     profilePicture    String? // URL or path to the user's profile picture
     backgroundPicture String? // URL or path to the user's background picture
     refreshToken      String? // Menyimpan refresh token untuk autentikasi
@@ -57,10 +58,11 @@ model User {
     replies           Reply[]
     reports           Report[]
     likes             Like[]
-    createdAt         DateTime    @default(now())
-    updatedAt         DateTime    @default(now()) @updatedAt
+    createdAt         DateTime       @default(now())
+    updatedAt         DateTime       @default(now()) @updatedAt
     postView          PostView[]
     replyView         ReplyView[]
+    Notification      Notification[]
 }
 
 model CommonWord {
@@ -196,4 +198,17 @@ model Report {
     user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt         DateTime @default(now())
     updatedAt         DateTime @default(now()) @updatedAt
+}
+
+model Notification {
+    id        String   @id @default(cuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    type      String
+    message   String
+    postId    String?
+    replyId   String?
+    url       String? // <--- tambahkan ini
+    createdAt DateTime @default(now())
+    isRead    Boolean  @default(false)
 }

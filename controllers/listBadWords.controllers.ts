@@ -1,15 +1,39 @@
 import { listBadWordsQueries } from "../queries";
 import { Request, Response } from "express";
 import { CustomError } from "../handler/customErrorHandler";
+import { createNotification } from "../queries/notification.queries";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export async function createBadWordHandler(req: Request, res: Response): Promise<void> {
     try {
-        const badWordData = req.body;
-        const newBadWord = await listBadWordsQueries.createListBadWord(badWordData);
+        const listBadWordsData = req.body;
+        const newListBadWords = await listBadWordsQueries.createListBadWord(listBadWordsData);
+
+        // Kirim notifikasi ke semua superadmin setelah berhasil tambah bad word
+        const superAdmins = await prisma.user.findMany({
+            where: {
+                role: {
+                    name: 'SuperAdmin', // Pastikan nama role sesuai di database Anda
+                },
+            },
+        });
+
+        await Promise.all(
+            superAdmins.map((user) =>
+                createNotification({
+                    userId: user.id,
+                    type: 'NEW_BAD_WORD',
+                    message: `Admin menambahkan kata buruk baru: "${newListBadWords.word}"`,
+                })
+            )
+        );
+
         res.status(201).json({
             status: "success",
-            message: 'Bad word created successfully',
-            badWord: newBadWord
+            message: 'ListBadWords created successfully',
+            listBadWords: newListBadWords
         });
     } catch (error: any) {
         const statusCode = error instanceof CustomError ? error.code : 500;
@@ -19,6 +43,24 @@ export async function createBadWordHandler(req: Request, res: Response): Promise
         });
     }
 }
+
+// export async function createBadWordHandler(req: Request, res: Response): Promise<void> {
+//     try {
+//         const badWordData = req.body;
+//         const newBadWord = await listBadWordsQueries.createListBadWord(badWordData);
+//         res.status(201).json({
+//             status: "success",
+//             message: 'Bad word created successfully',
+//             badWord: newBadWord
+//         });
+//     } catch (error: any) {
+//         const statusCode = error instanceof CustomError ? error.code : 500;
+//         res.status(statusCode).json({
+//             status: "error",
+//             message: error.message
+//         });
+//     }
+// }
 
 export async function getBadWordByIdHandler(req: Request, res: Response): Promise<void> {
     try {

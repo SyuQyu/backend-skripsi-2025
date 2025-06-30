@@ -10,6 +10,7 @@ import * as roleController from './role.controllers';
 import * as tagController from './tag.controllers';
 import * as authController from './auth.controllers';
 import * as dashboardDataController from './dashboardData.controllers';
+import * as notificationController from './notification.controllers';
 export {
     userController,
     imageController,
@@ -22,5 +23,6 @@ export {
     roleController,
     tagController,
     authController,
+    notificationController,
     dashboardDataController,
 };
