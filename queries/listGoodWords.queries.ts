@@ -89,7 +89,9 @@ async function getGoodWords() {
             id: gw.id,
             goodWord: gw.word,
             badWordId: m.badWord.id,
-            badWord: m.badWord.word
+            badWord: m.badWord.word,
+            createdAt: gw.createdAt,
+            updatedAt: gw.updatedAt
         }))
     );
 }
