@@ -1,19 +1,19 @@
 import { prisma } from "./prisma";
 
 async function createListBadWord(data: any) {
-    return await prisma.listBadWords.create({ data });
+    return await prisma.badWord.create({ data });
 }
 
 async function getListBadWordById(id: string) {
-    return await prisma.listBadWords.findUnique({ where: { id } });
+    return await prisma.badWord.findUnique({ where: { id } });
 }
 
 async function updateListBadWord(id: string, data: any) {
-    return await prisma.listBadWords.update({ where: { id }, data });
+    return await prisma.badWord.update({ where: { id }, data });
 }
 
 async function deleteListBadWord(id: string) {
-    return await prisma.listBadWords.delete({ where: { id } });
+    return await prisma.badWord.delete({ where: { id } });
 }
 
 async function getListBadWords(page: number = 1, limit: number = 10) {
@@ -24,22 +24,22 @@ async function getListBadWords(page: number = 1, limit: number = 10) {
     // Hitung skip dengan benar
     const skip = (safePage - 1) * safeLimit;
     console.log(`Fetching bad words: page=${safePage}, limit=${safeLimit}, skip=${skip}`);
-    return await prisma.listBadWords.findMany({
+    return await prisma.badWord.findMany({
         skip,
         take: limit,
     });
 }
 
 async function getListBadWordsWithoutPagination() {
-    return await prisma.listBadWords.findMany();
+    return await prisma.badWord.findMany();
 }
 
 async function getListBadWordsCount() {
-    return await prisma.listBadWords.count();
+    return await prisma.badWord.count();
 }
 
 async function getBadWordByWord(word: string) {
-    return await prisma.listBadWords.findFirst({ where: { word } });
+    return await prisma.badWord.findFirst({ where: { word } });
 }
 
 async function getBadWordByWordNotExact(word: string, page: number = 1, limit: number = 10) {
@@ -51,7 +51,7 @@ async function getBadWordByWordNotExact(word: string, page: number = 1, limit: n
     const skip = (safePage - 1) * safeLimit;
     console.log(`Searching bad words with term "${word}": page=${safePage}, limit=${safeLimit}, skip=${skip}`);
 
-    return await prisma.listBadWords.findMany({
+    return await prisma.badWord.findMany({
         where: {
             word: {
                 contains: word,
@@ -67,7 +67,7 @@ async function getBadWordByWordNotExact(word: string, page: number = 1, limit: n
 }
 
 async function getBadWordByWordNotExactCount(word: string) {
-    return await prisma.listBadWords.count({
+    return await prisma.badWord.count({
         where: {
             word: {
                 contains: word,

@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
  */
 async function getBadWordsFromDB(): Promise<Record<string, string>> {
     // Mengambil data dari tabel listBadWords dengan relasi ke goodWords
-    const badWordsList = await prisma.listBadWords.findMany({
+    const badWordsList = await prisma.badWord.findMany({
         include: {
             goodWords: true, // Mengambil daftar kata pengganti jika ada
         },

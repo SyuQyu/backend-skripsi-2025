@@ -2,21 +2,34 @@
 //// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 //// ------------------------------------------------------
 
-Table ListGoodWords {
+Table GoodWord {
   id String [pk]
-  word String [not null]
-  badWordId String [not null]
-  badWord ListBadWords [not null]
+  word String [unique, not null]
+  mappings BadWordGoodWord [not null]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [default: `now()`, not null]
 }
 
-Table ListBadWords {
+Table BadWord {
   id String [pk]
   word String [not null]
-  goodWords ListGoodWords [not null]
+  mappings BadWordGoodWord [not null]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [default: `now()`, not null]
+}
+
+Table BadWordGoodWord {
+  id String [pk]
+  badWordId String [not null]
+  goodWordId String [not null]
+  badWord BadWord [not null]
+  goodWord GoodWord [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (badWordId, goodWordId) [unique]
+  }
 }
 
 Table Role {
@@ -206,7 +219,9 @@ Table Notification {
   isRead Boolean [not null, default: false]
 }
 
-Ref: ListGoodWords.badWordId > ListBadWords.id [delete: Cascade]
+Ref: BadWordGoodWord.badWordId > BadWord.id [delete: Cascade]
+
+Ref: BadWordGoodWord.goodWordId > GoodWord.id [delete: Cascade]
 
 Ref: User.roleId > Role.id
 

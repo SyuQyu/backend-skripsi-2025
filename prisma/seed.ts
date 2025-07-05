@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
     // Seed roles
-    const roles = await prisma.role.createMany({
+    await prisma.role.createMany({
         data: [
             { name: 'Admin' },
             { name: 'User' },
@@ -59,10 +59,46 @@ async function main() {
             { word: 'hati' }
         ],
         skipDuplicates: true
-    })
+    });
 
-    // Seed bad words and replacements
-    const badWordsMap: any = {
+    // --- Seed GoodWord & badWord & BadWordGoodWord (Many-to-Many) ---
+    // Map kata baik agar tidak duplikat
+    const goodWordsArr = [
+        "bodoh",
+        "kurang ajar",
+        "tidak sopan",
+        "kurang pintar",
+        "nakal",
+        "tidak bertanggung jawab",
+        "jahat",
+        "tidak waras",
+        "kurang cerdas",
+        "orang jahat",
+        "menyebalkan",
+        "tidak berani",
+        "pengganggu",
+        "buruk hati",
+        "tidak bermoral",
+        "berantakan",
+        "kurang baik",
+        "tidak pantas",
+        "rusak",
+        "mengganggu",
+        "kurang modern"
+    ];
+
+    // Insert GoodWord (kata baik) tanpa duplikat
+    await prisma.goodWord.createMany({
+        data: goodWordsArr.map(word => ({ word })),
+        skipDuplicates: true
+    });
+
+    // Ambil semua GoodWord yang sudah ada
+    const goodWords = await prisma.goodWord.findMany();
+    const goodWordMap = new Map(goodWords.map(gw => [gw.word, gw.id]));
+
+    // Daftar kata kasar dan padanan kata baik
+    const badWordsMap: Record<string, string> = {
         "goblok": "bodoh",
         "anjing": "kurang ajar",
         "bangsat": "tidak sopan",
@@ -90,24 +126,32 @@ async function main() {
         "kampungan": "kurang modern"
     };
 
-    const badWordEntries = await prisma.$transaction(
-        Object.keys(badWordsMap).map(word =>
-            prisma.listBadWords.create({
-                data: { word }
-            })
-        )
-    );
+    // Insert badWord (kata kasar)
+    await prisma.badWord.createMany({
+        data: Object.keys(badWordsMap).map(word => ({ word })),
+        skipDuplicates: true
+    });
 
-    await prisma.$transaction(
-        badWordEntries.map(badWord =>
-            prisma.listGoodWords.create({
-                data: {
-                    word: badWordsMap[badWord.word],
-                    badWordId: badWord.id
-                }
-            })
-        )
-    );
+    // Ambil semua badWord yang sudah ada
+    const badWords = await prisma.badWord.findMany();
+    const badWordMap = new Map(badWords.map(bw => [bw.word, bw.id]));
+
+    // Insert relasi BadWordGoodWord (tanpa duplikat)
+    for (const [badWord, goodWord] of Object.entries(badWordsMap)) {
+        const badWordId = badWordMap.get(badWord);
+        const goodWordId = goodWordMap.get(goodWord);
+        if (badWordId && goodWordId) {
+            // Cek apakah relasi sudah ada
+            const exists = await prisma.badWordGoodWord.findFirst({
+                where: { badWordId, goodWordId }
+            });
+            if (!exists) {
+                await prisma.badWordGoodWord.create({
+                    data: { badWordId, goodWordId }
+                });
+            }
+        }
+    }
 
     // Seed tags
     await prisma.tag.createMany({

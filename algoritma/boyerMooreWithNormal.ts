@@ -50,15 +50,33 @@ function getNormalizationMapping(text: string) {
     return { normalized, mapping }
 }
 
-async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
-    const badWords: Record<string, string> = {}
-    for (const item of badWordsList) {
-        const normalized = normalizeWord(item.word)
-        const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word
-        badWords[normalized] = replacement
+async function getBadWordsFromDB() {
+    // Ambil semua relasi kata kasar dan kata baik (many-to-many)
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
+        include: {
+            badWord: true,
+            goodWord: true
+        }
+    });
+
+    // Map badword ke goodword (ambil satu padanan utama untuk setiap badword)
+    const badWords: Record<string, string> = {};
+    for (const rel of badWordGoodWords) {
+        const bad = rel.badWord.word;
+        const good = rel.goodWord.word;
+        // Jika sudah ada, jangan timpa (ambil padanan pertama saja)
+        if (!badWords[bad]) {
+            badWords[bad] = good;
+        }
     }
-    return badWords
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        if (!badWords[item.word]) {
+            badWords[item.word] = item.word;
+        }
+    }
+    return badWords;
 }
 
 const badCharCache = new Map<string, Record<string, number>>()

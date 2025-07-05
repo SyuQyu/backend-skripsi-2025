@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 
 // Ambil bad words dari DB tanpa normalisasi
 async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
+    const badWordsList = await prisma.badWord.findMany({ include: { goodWords: true } })
     const badWords: Record<string, string> = {}
     for (const item of badWordsList) {
         // Tidak ada normalisasi, gunakan kata asli

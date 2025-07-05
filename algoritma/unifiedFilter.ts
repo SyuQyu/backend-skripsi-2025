@@ -1136,17 +1136,34 @@ async function paraphraseSentences(
  * Get bad words from database with their replacements
  */
 async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } });
+    // Ambil semua relasi many-to-many antara kata kasar dan kata baik
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
+        include: {
+            badWord: true,
+            goodWord: true
+        }
+    });
+
+    // Map badword (sudah dinormalisasi) ke goodword (ambil satu padanan utama untuk setiap badword)
     const badWords: Record<string, string> = {};
-
-    for (const item of badWordsList) {
-        const normalized = normalizeWord(item.word);
-        // Only add words with minimum length to avoid false positives
+    for (const rel of badWordGoodWords) {
+        const normalized = normalizeWord(rel.badWord.word);
+        // Hanya tambahkan kata dengan panjang minimal tertentu untuk menghindari false positive
         if (normalized.length < 2) continue;
-        const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word;
-        badWords[normalized] = replacement;
+        // Jika sudah ada, jangan timpa (ambil padanan pertama saja)
+        if (!badWords[normalized]) {
+            badWords[normalized] = rel.goodWord.word;
+        }
     }
-
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        const normalized = normalizeWord(item.word);
+        if (normalized.length < 2) continue;
+        if (!badWords[normalized]) {
+            badWords[normalized] = item.word;
+        }
+    }
     return badWords;
 }
 

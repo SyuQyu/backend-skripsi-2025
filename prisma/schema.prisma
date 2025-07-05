@@ -13,21 +13,32 @@ datasource db {
     url      = env("DATABASE_PROD_URL_NEW")
 }
 
-model ListGoodWords {
-    id        String       @id @default(cuid())
-    word      String
-    badWordId String
-    badWord   ListBadWords @relation(fields: [badWordId], references: [id], onDelete: Cascade)
-    createdAt DateTime     @default(now())
-    updatedAt DateTime     @default(now()) @updatedAt
+model GoodWord {
+    id        String            @id @default(cuid())
+    word      String            @unique
+    mappings  BadWordGoodWord[]
+    createdAt DateTime          @default(now())
+    updatedAt DateTime          @default(now()) @updatedAt
 }
 
-model ListBadWords {
-    id        String          @id @default(cuid())
+model BadWord {
+    id        String            @id @default(cuid())
     word      String
-    goodWords ListGoodWords[]
-    createdAt DateTime        @default(now())
-    updatedAt DateTime        @default(now()) @updatedAt
+    mappings  BadWordGoodWord[]
+    createdAt DateTime          @default(now())
+    updatedAt DateTime          @default(now()) @updatedAt
+}
+
+model BadWordGoodWord {
+    id         String   @id @default(cuid())
+    badWordId  String
+    goodWordId String
+    badWord    BadWord  @relation(fields: [badWordId], references: [id], onDelete: Cascade)
+    goodWord   GoodWord @relation(fields: [goodWordId], references: [id], onDelete: Cascade)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @default(now()) @updatedAt
+
+    @@unique([badWordId, goodWordId])
 }
 
 model Role {

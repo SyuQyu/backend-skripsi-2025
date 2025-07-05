@@ -190,7 +190,7 @@ export async function getBadWordByWordHandler(req: Request, res: Response): Prom
     try {
         const badWord = await listBadWordsQueries.getBadWordByWord(req.params.word);
         if (!badWord) {
-            throw new CustomError(404, 'Bad word not found');
+            throw new CustomError(200, 'Bad word not found');
         }
         res.status(200).json({
             status: "success",

@@ -52,7 +52,7 @@ function getNormalizationMapping(text: string) {
  * Output: { normalized_badword: replacement }
  */
 async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
+    const badWordsList = await prisma.badWord.findMany({ include: { goodWords: true } })
     const badWords: Record<string, string> = {}
     for (const item of badWordsList) {
         const normalized = normalizeWord(item.word)

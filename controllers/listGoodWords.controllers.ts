@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 export async function createListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
         const listGoodWordsData = req.body;
-        const newListGoodWords = await listGoodWordsQueries.createListGoodWord(listGoodWordsData);
+        const newListGoodWords = await listGoodWordsQueries.createGoodWord(listGoodWordsData);
 
         // Kirim notifikasi ke semua superadmin setelah berhasil tambah good word
         const superAdmins = await prisma.user.findMany({
@@ -67,7 +67,7 @@ export async function createListGoodWordsHandler(req: Request, res: Response): P
 
 export async function getListGoodWordsByIdHandler(req: Request, res: Response): Promise<void> {
     try {
-        const listGoodWords = await listGoodWordsQueries.getListGoodWordById(req.params.goodWordId);
+        const listGoodWords = await listGoodWordsQueries.getGoodWordById(req.params.goodWordId);
         if (!listGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -88,7 +88,7 @@ export async function getListGoodWordsByIdHandler(req: Request, res: Response): 
 export async function updateListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
         const updatedListGoodWordsData = req.body;
-        const updatedListGoodWords = await listGoodWordsQueries.updateListGoodWord(req.params.goodWordId, updatedListGoodWordsData);
+        const updatedListGoodWords = await listGoodWordsQueries.updateGoodWord(req.params.goodWordId, updatedListGoodWordsData);
         if (!updatedListGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -108,7 +108,7 @@ export async function updateListGoodWordsHandler(req: Request, res: Response): P
 
 export async function deleteListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
-        const deletedListGoodWords = await listGoodWordsQueries.deleteListGoodWord(req.params.goodWordId);
+        const deletedListGoodWords = await listGoodWordsQueries.deleteGoodWord(req.params.goodWordId);
         if (!deletedListGoodWords) {
             throw new CustomError(404, 'ListGoodWords not found');
         }
@@ -129,7 +129,7 @@ export async function deleteListGoodWordsHandler(req: Request, res: Response): P
 
 export async function listAllListGoodWordsHandler(req: Request, res: Response): Promise<void> {
     try {
-        const listGoodWords = await listGoodWordsQueries.getListGoodWords();
+        const listGoodWords = await listGoodWordsQueries.getGoodWords();
         res.status(200).json({
             status: "success",
             message: 'ListGoodWords found',
@@ -146,7 +146,7 @@ export async function listAllListGoodWordsHandler(req: Request, res: Response): 
 
 export async function getGoodWordbyWordHandler(req: Request, res: Response): Promise<void> {
     try {
-        const goodWord = await listGoodWordsQueries.getGoodWordbyWord(req.params.word);
+        const goodWord = await listGoodWordsQueries.getGoodWordByWord(req.params.word);
         if (!goodWord) {
             throw new CustomError(404, 'GoodWord not found');
         }
@@ -168,30 +168,19 @@ export const bulkInsertFromFileHandler = [
     uploadSingleFile,
     async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.file) {
-                throw new CustomError(400, 'No file uploaded');
-            }
-
+            if (!req.file) throw new CustomError(400, 'No file uploaded');
             const ext = path.extname(req.file.originalname).toLowerCase();
-
-            // Batasi ukuran file maksimum (contoh: 5MB)
-            const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-            if (req.file.size > MAX_FILE_SIZE) {
-                throw new CustomError(400, `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
-            }
+            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+            if (req.file.size > MAX_FILE_SIZE) throw new CustomError(400, `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
 
             let data: Array<{ [key: string]: string }>;
-
             if (ext === '.csv') {
-                // Jika CSV, langsung parsing CSV text dari buffer (as utf-8 string)
                 const csvString = req.file.buffer.toString('utf-8');
-                // Parse CSV ke JSON, misal pakai XLSX.utils
                 const workbook = XLSX.read(csvString, { type: 'string' });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
             } else if (ext === '.xlsx' || ext === '.xls') {
-                // Parse file Excel
                 const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
@@ -199,84 +188,106 @@ export const bulkInsertFromFileHandler = [
             } else {
                 throw new CustomError(400, `Unsupported file type: ${ext}`);
             }
-
-            if (!data || data.length === 0) {
-                throw new CustomError(400, 'Empty or invalid file data');
-            }
-
-            // Batasi jumlah baris maksimum
+            if (!data || data.length === 0) throw new CustomError(400, 'Empty or invalid file data');
             const MAX_ROWS = 5000;
-            if (data.length > MAX_ROWS) {
-                throw new CustomError(400, `Too many rows. Maximum is ${MAX_ROWS} rows`);
-            }
+            if (data.length > MAX_ROWS) throw new CustomError(400, `Too many rows. Maximum is ${MAX_ROWS} rows`);
 
-            // Penyesuaian agar bisa menerima format tabel seperti gambar
-            // Proses secara batch untuk mengurangi memory usage
-            const BATCH_SIZE = 100; // Proses 500 baris sekaligus
-            const results = {
-                count: 0,
-                insertedWords: [] as any[]
-            };
+            const BATCH_SIZE = 100;
+            const results = { count: 0, insertedWords: [] as any[] };
 
-            // Memproses data dalam batch
+            // Ambil semua kata kasar & kata baik yang sudah ada di DB
+            const allBadWords = await prisma.badWord.findMany({ select: { id: true, word: true } });
+            const allGoodWords = await prisma.goodWord.findMany({ select: { id: true, word: true } });
+            const allMappings = await prisma.badWordGoodWord.findMany({ select: { badWordId: true, goodWordId: true } });
+
+            // Map untuk lookup cepat
+            const badWordMap = new Map(allBadWords.map(item => [item.word.trim().toLowerCase(), item.id]));
+            const goodWordMap = new Map(allGoodWords.map(item => [item.word.trim().toLowerCase(), item.id]));
+            // Set relasi unik badWordId|goodWordId
+            const mappingSet = new Set(allMappings.map(m => `${m.badWordId}|${m.goodWordId}`));
+
             for (let i = 0; i < data.length; i += BATCH_SIZE) {
                 const batchData = data.slice(i, i + BATCH_SIZE);
 
-                const wordPairs = batchData
-                    .flatMap(row => {
-                        // Ambil kolom utama (case-insensitive)
-                        const badWordsRaw = row['Kata Kasar'] || row['kata kasar'] || row['kata kotor'] || row['Kata Kotor'] || '';
-                        const slangRaw = row['Variasi Ejaan/Slang'] || row['variasi ejaan/slang'] || row['slang'] || '';
-                        const goodWordRaw = row['Padanan Kata Halus'] || row['padanan kata halus'] || row['kata baik'] || row['Kata Baik'] || '';
+                // Kumpulkan pasangan kata kasar dan kata baik
+                const wordPairs = batchData.flatMap(row => {
+                    const badWordsRaw = row['Kata Kasar'] || row['kata kasar'] || row['kata kotor'] || row['Kata Kotor'] || '';
+                    const slangRaw = row['Variasi Ejaan/Slang'] || row['variasi ejaan/slang'] || row['slang'] || '';
+                    const goodWordRaw = row['Padanan Kata Halus'] || row['padanan kata halus'] || row['kata baik'] || row['Kata Baik'] || '';
 
-                        // Gabungkan kata kasar utama dan semua slang (masuk sebagai kata kasar)
-                        // Pisahkan dengan koma, trim, dan filter kosong
-                        const badWordsArr = [
-                            ...(badWordsRaw ? badWordsRaw.split(',') : []),
-                            ...(slangRaw ? slangRaw.split(',') : [])
-                        ]
-                            .map(w => w.trim())
-                            .filter(Boolean);
+                    const badWordsArr = [
+                        ...(badWordsRaw ? badWordsRaw.split(',') : []),
+                        ...(slangRaw ? slangRaw.split(',') : [])
+                    ].map(w => w.trim()).filter(Boolean);
 
-                        // Padanan kata halus bisa lebih dari satu, ambil semua
-                        const substitutesArr = goodWordRaw
-                            ? goodWordRaw.split(',').map(w => w.trim()).filter(Boolean)
-                            : [];
+                    const substitutesArr = goodWordRaw
+                        ? goodWordRaw.split(',').map(w => w.trim()).filter(Boolean)
+                        : [];
 
-                        // Untuk setiap kata kasar/slang, buat entry untuk setiap padanan kata halus
-                        // Batasi jumlah kombinasi untuk mencegah explosive growth
-                        const pairs: { word: string; substitute: string }[] = [];
-                        const MAX_COMBINATIONS = 20; // Batasi jumlah kombinasi per baris
-
-                        for (const word of badWordsArr) {
-                            for (const substitute of substitutesArr) {
-                                if (pairs.length < MAX_COMBINATIONS) {
-                                    pairs.push({ word, substitute });
-                                } else {
-                                    break;
-                                }
+                    const pairs: { word: string; substitute: string }[] = [];
+                    const MAX_COMBINATIONS = 20;
+                    for (const word of badWordsArr) {
+                        for (const substitute of substitutesArr) {
+                            if (pairs.length < MAX_COMBINATIONS) {
+                                pairs.push({ word, substitute });
+                            } else {
+                                break;
                             }
                         }
-                        return pairs;
-                    })
-                    .filter(item => item.word && item.substitute);
+                    }
+                    return pairs;
+                }).filter(item => item.word && item.substitute);
 
-                if (wordPairs.length > 0) {
-                    // Masukkan batch ke database
-                    const batchResult = await listGoodWordsQueries.blukCreateGoodBadWords(wordPairs);
-                    results.count += batchResult.count;
-                    results.insertedWords = [...results.insertedWords, ...batchResult.insertedWords];
+                // Proses insert dengan pengecekan duplikasi kata kasar & kata baik & mapping
+                for (const pair of wordPairs) {
+                    const badWordKey = pair.word.trim().toLowerCase();
+                    let badWordId = badWordMap.get(badWordKey);
+
+                    // Jika kata kasar belum ada, insert dan update map
+                    if (!badWordId) {
+                        const badWord = await prisma.badWord.create({
+                            data: { word: pair.word }
+                        });
+                        badWordId = badWord.id;
+                        badWordMap.set(badWordKey, badWordId);
+                    }
+
+                    // Cek kata baik global, jika belum ada insert ke DB (tabel goodWord)
+                    const goodWordKey = pair.substitute.trim().toLowerCase();
+                    let goodWordId: string | undefined = goodWordMap.get(goodWordKey);
+                    if (!goodWordId) {
+                        const goodWord = await prisma.goodWord.create({
+                            data: { word: pair.substitute }
+                        });
+                        goodWordId = goodWord.id;
+                        goodWordMap.set(goodWordKey, goodWordId);
+                    }
+
+                    // Cek relasi many-to-many (BadWordGoodWord)
+                    const mappingKey = `${badWordId}|${goodWordId}`;
+                    if (mappingSet.has(mappingKey)) {
+                        // Sudah ada, skip insert relasi
+                        continue;
+                    }
+
+                    // Insert relasi many-to-many
+                    const mapping = await prisma.badWordGoodWord.create({
+                        data: {
+                            badWordId: badWordId,
+                            goodWordId: goodWordId
+                        }
+                    });
+                    mappingSet.add(mappingKey);
+                    results.count += 1;
+                    results.insertedWords.push(mapping);
                 }
             }
 
-            if (results.count === 0) {
-                throw new CustomError(400, 'No valid word pairs found in file');
-            }
+            if (results.count === 0) throw new CustomError(400, 'No valid word pairs found in file (all already exist or invalid)');
 
             res.status(201).json({
                 status: 'success',
                 message: `${results.count} List Words inserted successfully from file`,
-                // Batasi jumlah kata yang dikembalikan ke client
                 insertedWords: results.insertedWords.length > 100
                     ? results.insertedWords.slice(0, 100)
                     : results.insertedWords
@@ -291,7 +302,6 @@ export const bulkInsertFromFileHandler = [
         }
     }
 ];
-
 
 // export const bulkInsertFromFileHandler = [
 //     uploadSingleFile,

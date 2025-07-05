@@ -61,8 +61,10 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
             return;
         }
 
-        // Gunakan fungsi Boyer-Moore untuk memfilter kata
-        const { filteredText, filteredWords, durationMs, filteredBeforeAI, filteredAI } = await boyerMooreFilter(text);
+        // Gunakan fungsi Boyer-Moore untuk memfilter kata dengan multiple replacements
+        const { filteredText, filteredWords, durationMs, filteredBeforeAI, filteredAI, allReplacementWords } =
+            await boyerMooreFilter(text, [], true);
+
         const bannedWords = filteredWords.map(word => word.original);
         const replacementWords = filteredWords.map(word => word.replacement);
 
@@ -75,6 +77,7 @@ export async function checkWordHandler(req: Request, res: Response): Promise<voi
             filteredAfterAI: filteredAI,
             bannedWords: bannedWords,
             replacementWords: replacementWords,
+            allReplacementWords: allReplacementWords,
             durationMs: `${durationMs}ms`
         });
     } catch (error: any) {

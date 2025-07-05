@@ -51,19 +51,45 @@ function getNormalizationMapping(text: string) {
 
 /**
  * Mengambil daftar kata kasar dari database, lalu menormalisasi dan mengambil kata pengganti.
- * Output: { normalized_badword: replacement }
+ * Output: { normalized_badword: { primary: string, all: string[] } }
  */
-async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.listBadWords.findMany({ include: { goodWords: true } })
-    const badWords: Record<string, string> = {}
-    for (const item of badWordsList) {
-        const normalized = normalizeWord(item.word)
+async function getBadWordsFromDB(): Promise<Record<string, { primary: string, all: string[] }>> {
+    // Ambil semua relasi many-to-many antara kata kasar dan kata baik
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
+        include: {
+            badWord: true,
+            goodWord: true
+        }
+    });
+
+    // Map badword (sudah dinormalisasi) ke goodword (simpan semua padanan)
+    const badWords: Record<string, { primary: string, all: string[] }> = {};
+    for (const rel of badWordGoodWords) {
+        const normalized = normalizeWord(rel.badWord.word);
         // Hanya tambahkan kata dengan panjang minimal tertentu untuk menghindari false positive
-        if (normalized.length < 2) continue
-        const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word
-        badWords[normalized] = replacement
+        if (normalized.length < 2) continue;
+
+        // Inisialisasi jika belum ada
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: rel.goodWord.word, all: [rel.goodWord.word] };
+        } else {
+            // Tambahkan ke daftar jika belum ada
+            if (!badWords[normalized].all.includes(rel.goodWord.word)) {
+                badWords[normalized].all.push(rel.goodWord.word);
+            }
+        }
     }
-    return badWords
+
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        const normalized = normalizeWord(item.word);
+        if (normalized.length < 2) continue;
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: item.word, all: [item.word] };
+        }
+    }
+    return badWords;
 }
 
 /**
@@ -229,18 +255,27 @@ function verifyMatch(token: string, pattern: string, commonWordsSet: Set<string>
  * - Menghitung akurasi deteksi jika diberikan ground-truth.
  * @param text Teks yang akan difilter
  * @param trueBadWords (opsional) Daftar kata kasar ground-truth untuk evaluasi akurasi
+ * @param showMultipleReplacements (opsional) Apakah menampilkan semua kata pengganti
  * @returns Hasil filter, daftar kata yang difilter, statistik, dan akurasi deteksi (jika ada)
  */
 export async function boyerMooreFilter(
     text: string,
-    trueBadWords?: string[] // Tambahkan parameter ini
+    trueBadWords?: string[],
+    showMultipleReplacements: boolean = false
 ): Promise<{
     status: string
     original: string
-    filteredWords: { original: string; replacement: string; position: number; rawWord: string }[]
+    filteredWords: {
+        original: string;
+        replacement: string;
+        replacements?: string[];
+        position: number;
+        rawWord: string
+    }[]
     filtered: string
     bannedWords: string[]
     replacementWords: string[]
+    allReplacementWords?: string[][]
     filteredText: string
     filteredBeforeAI: string
     filteredAI: string
@@ -262,6 +297,7 @@ export async function boyerMooreFilter(
     type Match = {
         original: string
         replacement: string
+        replacements: string[]
         start: number
         end: number
         rawWord: string
@@ -282,7 +318,8 @@ export async function boyerMooreFilter(
         // Skip kata yang terlalu pendek atau umum - cegah false positive
         if (pattern.length < 2) continue;
 
-        const replacement = badWords[pattern]
+        const replacement = badWords[pattern].primary
+        const replacements = badWords[pattern].all
         const bmMatches = boyerMooreSearch(normalizedText, text, normToOrig, pattern, commonWordsSet)
 
         for (const match of bmMatches) {
@@ -292,6 +329,7 @@ export async function boyerMooreFilter(
             matches.push({
                 original: pattern,
                 replacement,
+                replacements,
                 start: match.start,
                 end: match.end,
                 rawWord: match.rawWord,
@@ -307,7 +345,8 @@ export async function boyerMooreFilter(
         // Skip kata-kata umum dalam fuzzy search karena rawan false positive
         if (commonWordsSet.has(pattern)) continue;
 
-        const replacement = badWords[pattern]
+        const replacement = badWords[pattern].primary
+        const replacements = badWords[pattern].all
         const fuzzyRx = buildFuzzyRegex(pattern)
 
         for (const { token, start, end } of tokens) {
@@ -327,7 +366,14 @@ export async function boyerMooreFilter(
                 // Tambahan verifikasi untuk mengurangi false positive
                 if (!verifyMatch(token, pattern, commonWordsSet)) continue;
 
-                matches.push({ original: pattern, replacement, start, end, rawWord: token })
+                matches.push({
+                    original: pattern,
+                    replacement,
+                    replacements,
+                    start,
+                    end,
+                    rawWord: token
+                })
             }
         }
     }
@@ -426,15 +472,17 @@ export async function boyerMooreFilter(
         filteredWords: filtered.map((f) => ({
             original: f.original,
             replacement: f.replacement,
+            replacements: showMultipleReplacements ? f.replacements : undefined,
             position: f.start,
             rawWord: f.rawWord,
         })),
-        filtered: paraphrasedResult,           // hasil akhir (setelah AI)
-        filteredText: paraphrasedResult,       // hasil akhir (setelah AI)
-        filteredBeforeAI: result,              // hasil filter sebelum parafrase AI
-        filteredAI: paraphrasedResult,         // hasil setelah parafrase AI (sama dengan filtered/filteredText)
+        filtered: paraphrasedResult,
+        filteredText: paraphrasedResult,
+        filteredBeforeAI: result,
+        filteredAI: paraphrasedResult,
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
+        allReplacementWords: showMultipleReplacements ? filtered.map((f) => f.replacements) : undefined,
         durationMs: durationMs,
         detectionAccuracy: detectionAccuracy,
         detectedTrueArr,
