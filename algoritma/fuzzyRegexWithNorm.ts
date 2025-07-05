@@ -19,16 +19,43 @@ function normalizeWord(word: string): string {
         .replace(/[^a-z]/g, '')
 }
 
-async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.badWord.findMany({ include: { goodWords: true } })
-    const badWords: Record<string, string> = {}
-    for (const item of badWordsList) {
-        const normalized = normalizeWord(item.word)
-        if (normalized.length < 2) continue
-        const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word
-        badWords[normalized] = replacement
+async function getBadWordsFromDB(): Promise<Record<string, { primary: string, all: string[] }>> {
+    // Ambil semua relasi many-to-many antara kata kasar dan kata baik
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
+        include: {
+            badWord: true,
+            goodWord: true
+        }
+    });
+
+    // Map badword (sudah dinormalisasi) ke goodword (simpan semua padanan)
+    const badWords: Record<string, { primary: string, all: string[] }> = {};
+    for (const rel of badWordGoodWords) {
+        const normalized = normalizeWord(rel.badWord.word);
+        // Hanya tambahkan kata dengan panjang minimal tertentu untuk menghindari false positive
+        if (normalized.length < 2) continue;
+
+        // Inisialisasi jika belum ada
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: rel.goodWord.word, all: [rel.goodWord.word] };
+        } else {
+            // Tambahkan ke daftar jika belum ada
+            if (!badWords[normalized].all.includes(rel.goodWord.word)) {
+                badWords[normalized].all.push(rel.goodWord.word);
+            }
+        }
     }
-    return badWords
+
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        const normalized = normalizeWord(item.word);
+        if (normalized.length < 2) continue;
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: item.word, all: [item.word] };
+        }
+    }
+    return badWords;
 }
 
 async function getCommonWordsSet(): Promise<Set<string>> {
@@ -76,18 +103,28 @@ function verifyMatch(token: string, pattern: string, commonWordsSet: Set<string>
 /**
  * Jalankan filter hanya dengan fuzzy regex (tanpa Boyer-Moore).
  * @param text Teks yang akan difilter
+ * @param trueBadWords Daftar kata kasar ground-truth untuk evaluasi akurasi
+ * @param showMultipleReplacements Apakah menampilkan semua kata pengganti
  * @returns Hasil filter dan daftar kata yang difilter
  */
 export async function fuzzyRegexOnlyFilter(
     text: string,
-    trueBadWords?: string[]
+    trueBadWords?: string[],
+    showMultipleReplacements: boolean = false
 ): Promise<{
     status: string
     original: string
-    filteredWords: { original: string; replacement: string; position: number; rawWord: string }[]
+    filteredWords: {
+        original: string;
+        replacement: string;
+        replacements?: string[];
+        position: number;
+        rawWord: string
+    }[]
     filtered: string
     bannedWords: string[]
     replacementWords: string[]
+    allReplacementWords?: string[][]
     filteredText: string
     durationMs: number
     detectionAccuracy?: number
@@ -101,6 +138,7 @@ export async function fuzzyRegexOnlyFilter(
     type Match = {
         original: string
         replacement: string
+        replacements: string[]
         start: number
         end: number
         rawWord: string
@@ -118,7 +156,8 @@ export async function fuzzyRegexOnlyFilter(
     for (const pattern in badWords) {
         if (pattern.length < 4) continue;
         if (commonWordsSet.has(pattern)) continue;
-        const replacement = badWords[pattern]
+        const replacement = badWords[pattern].primary
+        const replacements = badWords[pattern].all
         const fuzzyRx = buildFuzzyRegex(pattern)
         for (const { token, start, end } of tokens) {
             if (matches.some((m) => m.start <= start && m.end >= end)) continue;
@@ -129,7 +168,14 @@ export async function fuzzyRegexOnlyFilter(
             if (normalizedToken.length < pattern.length) continue;
             if (fuzzyRx.test(normalizedToken)) {
                 if (!verifyMatch(token, pattern, commonWordsSet)) continue;
-                matches.push({ original: pattern, replacement, start, end, rawWord: token })
+                matches.push({
+                    original: pattern,
+                    replacement,
+                    replacements,
+                    start,
+                    end,
+                    rawWord: token
+                })
             }
         }
     }
@@ -178,6 +224,7 @@ export async function fuzzyRegexOnlyFilter(
         filteredWords: filtered.map((f) => ({
             original: f.original,
             replacement: f.replacement,
+            replacements: showMultipleReplacements ? f.replacements : undefined,
             position: f.start,
             rawWord: f.rawWord,
         })),
@@ -185,6 +232,7 @@ export async function fuzzyRegexOnlyFilter(
         filteredText: result,
         bannedWords: filtered.map((f) => f.original),
         replacementWords: filtered.map((f) => f.replacement),
+        allReplacementWords: showMultipleReplacements ? filtered.map((f) => f.replacements) : undefined,
         durationMs,
         detectionAccuracy,
         detectedTrueArr,

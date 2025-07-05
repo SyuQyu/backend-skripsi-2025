@@ -9,31 +9,43 @@ const prisma = new PrismaClient();
  * 
  * @returns {Promise<Record<string, string>>} - Objek yang berisi pasangan kata kasar dan penggantinya.
  */
-async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    // Mengambil data dari tabel listBadWords dengan relasi ke goodWords
-    const badWordsList = await prisma.badWord.findMany({
+async function getBadWordsFromDB(): Promise<Record<string, { primary: string, all: string[] }>> {
+    // Ambil semua relasi many-to-many antara kata kasar dan kata baik
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
         include: {
-            goodWords: true, // Mengambil daftar kata pengganti jika ada
-        },
+            badWord: true,
+            goodWord: true
+        }
     });
 
-    // Inisialisasi objek untuk menyimpan kata kasar dan penggantinya
-    let badWords: Record<string, string> = {};
+    // Map badword (sudah dinormalisasi) ke goodword (simpan semua padanan)
+    const badWords: Record<string, { primary: string, all: string[] }> = {};
+    for (const rel of badWordGoodWords) {
+        const normalized = normalizeWord(rel.badWord.word);
+        // Hanya tambahkan kata dengan panjang minimal tertentu untuk menghindari false positive
+        if (normalized.length < 2) continue;
 
-    // Iterasi setiap kata kasar yang diambil dari database
-    for (const badWordItem of badWordsList) {
-        // Normalisasi kata kasar agar lebih mudah dicocokkan
-        const normalizedWord = normalizeWord(badWordItem.word);
-
-        // Jika ada kata pengganti, gunakan kata pertama dari daftar goodWords
-        // Jika tidak ada, gunakan kata aslinya sebagai pengganti (artinya tidak diganti)
-        const replacement = badWordItem.goodWords.length > 0 ? badWordItem.goodWords[0].word : badWordItem.word;
-
-        // Simpan hasil normalisasi dalam objek
-        badWords[normalizedWord] = replacement;
+        // Inisialisasi jika belum ada
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: rel.goodWord.word, all: [rel.goodWord.word] };
+        } else {
+            // Tambahkan ke daftar jika belum ada
+            if (!badWords[normalized].all.includes(rel.goodWord.word)) {
+                badWords[normalized].all.push(rel.goodWord.word);
+            }
+        }
     }
 
-    return badWords; // Mengembalikan daftar kata kasar yang telah diproses
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        const normalized = normalizeWord(item.word);
+        if (normalized.length < 2) continue;
+        if (!badWords[normalized]) {
+            badWords[normalized] = { primary: item.word, all: [item.word] };
+        }
+    }
+    return badWords;
 }
 
 /**
@@ -130,13 +142,13 @@ export async function boyerMooreFilter(text: string): Promise<{
             // Tambahkan data ke filteredWords (dengan kata asli sebelum normalisasi)
             filteredWords.push({
                 original: normalized,      // Kata kasar hasil normalisasi, misal: "anjing"
-                replacement: replacement,  // Kata pengganti, misal: "kurang ajar"
+                replacement: replacement.primary,  // Kata pengganti, misal: "kurang ajar"
                 position: currentIndex,    // Posisi kata dalam teks asli
                 rawWord: word              // Kata asli dalam teks pengguna, misal: "4njing"
             });
 
             // Tambahkan kata pengganti ke teks hasil filter
-            filteredText += replacement;
+            filteredText += replacement.primary;
         } else {
             // Jika bukan kata kasar, tambahkan apa adanya
             filteredText += word;

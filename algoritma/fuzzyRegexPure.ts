@@ -3,18 +3,33 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// Ambil bad words dari DB tanpa normalisasi
-async function getBadWordsFromDB(): Promise<Record<string, string>> {
-    const badWordsList = await prisma.badWord.findMany({ include: { goodWords: true } })
-    const badWords: Record<string, string> = {}
-    for (const item of badWordsList) {
-        // Tidak ada normalisasi, gunakan kata asli
-        const word = item.word
-        if (word.length < 2) continue
-        const replacement = item.goodWords.length > 0 ? item.goodWords[0].word : item.word
-        badWords[word] = replacement
+async function getBadWordsFromDB() {
+    // Ambil semua relasi many-to-many antara kata kasar dan kata baik
+    const badWordGoodWords = await prisma.badWordGoodWord.findMany({
+        include: {
+            badWord: true,
+            goodWord: true
+        }
+    });
+
+    // Map badword ke goodword (ambil satu padanan utama untuk setiap badword)
+    const badWords: Record<string, string> = {};
+    for (const rel of badWordGoodWords) {
+        const bad = rel.badWord.word;
+        const good = rel.goodWord.word;
+        // Jika sudah ada, jangan timpa (ambil padanan pertama saja)
+        if (!badWords[bad]) {
+            badWords[bad] = good;
+        }
     }
-    return badWords
+    // Jika ada badword tanpa padanan, tambahkan dirinya sendiri sebagai pengganti
+    const allBadWords = await prisma.badWord.findMany();
+    for (const item of allBadWords) {
+        if (!badWords[item.word]) {
+            badWords[item.word] = item.word;
+        }
+    }
+    return badWords;
 }
 
 // Fuzzy regex builder tanpa normalisasi
