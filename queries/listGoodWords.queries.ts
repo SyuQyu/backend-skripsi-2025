@@ -86,8 +86,9 @@ async function getGoodWords() {
     // Setiap kombinasi goodWord dan badWord jadi satu objek terpisah
     return goodWords.flatMap(gw =>
         gw.mappings.map(m => ({
-            id: gw.id,
+            id: `${gw.id}_${m.badWord.id}`,
             goodWord: gw.word,
+            goodWordId: gw.id,
             badWordId: m.badWord.id,
             badWord: m.badWord.word,
             createdAt: gw.createdAt,
